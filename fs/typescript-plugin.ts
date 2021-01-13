@@ -3,18 +3,8 @@ import * as tsExtn from "../typescript-extn.ts";
 import * as fr from "../framework.ts";
 import * as fs from "./file-sys-plugin.ts";
 
-export interface TypeScriptModuleRegistrationSupplier {
-  (
-    potential: tsExtn.DenoModulePlugin,
-  ): fr.ValidPluginRegistration | fr.InvalidPluginRegistration;
-}
-
-export interface TypeScriptRegistrarOptions {
-  readonly validateModule: TypeScriptModuleRegistrationSupplier;
-}
-
 export function typeScriptFileRegistrar(
-  tsro: TypeScriptRegistrarOptions,
+  tsro: tsExtn.TypeScriptRegistrarOptions,
 ): fr.PluginRegistrar {
   return async (source: fr.PluginSource): Promise<fr.PluginRegistration> => {
     if (fs.isFileSystemPluginSource(source)) {

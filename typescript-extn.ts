@@ -1,15 +1,25 @@
-import { safety } from "./deps.ts";
+import { safety, safety as tsExtn } from "./deps.ts";
 import * as fr from "./framework.ts";
 
 export interface DenoModulePlugin extends fr.Plugin {
   readonly module: unknown;
 }
 
-export const isDenoModulePlugin = safety.typeGuard<DenoModulePlugin>(
+export const isDenoModulePlugin = tsExtn.typeGuard<DenoModulePlugin>(
   "nature",
   "source",
   "module",
 );
+
+export interface TypeScriptModuleRegistrationSupplier {
+  (
+    potential: DenoModulePlugin,
+  ): fr.ValidPluginRegistration | fr.InvalidPluginRegistration;
+}
+
+export interface TypeScriptRegistrarOptions {
+  readonly validateModule: TypeScriptModuleRegistrationSupplier;
+}
 
 export interface DenoFunctionModulePlugin<T extends fr.PluginExecutive>
   extends DenoModulePlugin {
@@ -39,6 +49,15 @@ export interface DenoFunctionModuleHandler<T extends fr.PluginExecutive> {
 export interface DenoFunctionModuleActionResult<T extends fr.PluginExecutive>
   extends fr.ActionResult<T> {
   readonly dfmhResult: DenoFunctionModuleHandlerResult;
+}
+
+export function isDenoFunctionModuleActionResult<T extends fr.PluginExecutive>(
+  o: unknown,
+): o is DenoFunctionModuleActionResult<T> {
+  const isDfmaResult = safety.typeGuard<DenoFunctionModuleActionResult<T>>(
+    "dfmhResult",
+  );
+  return isDfmaResult(o);
 }
 
 export function registerDenoFunctionModule<

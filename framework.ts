@@ -53,13 +53,14 @@ export interface PluginsSupplier {
   readonly plugins: Plugin[];
 }
 
+export interface PluginActivityReporter {
+  (a: actv.PluginActivity, options?: { dryRun?: boolean }): void;
+}
+
 export interface PluginContext<T extends PluginExecutive> {
   readonly container: T;
   readonly plugin: Plugin;
-  readonly onActivity: (
-    a: actv.PluginActivity,
-    options?: { dryRun?: boolean },
-  ) => void;
+  readonly onActivity?: PluginActivityReporter;
 }
 
 export function isPluginContext<T extends PluginExecutive>(

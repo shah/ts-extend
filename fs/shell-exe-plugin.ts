@@ -1,33 +1,12 @@
 import { path, safety, shell } from "../deps.ts";
-import * as shExtn from "../shell-exe-extn.ts";
 import * as fr from "../framework.ts";
+import * as shExtn from "../shell-exe-extn.ts";
 import * as fs from "./file-sys-plugin.ts";
 
 export interface ShellFileRegistrarOptions<T extends fr.PluginExecutive> {
-  readonly envVarsSupplier?: (
-    pc: fr.PluginContext<T>,
-  ) => Record<string, string>;
-  readonly shellCmdEnhancer?: (
-    pc: fr.PluginContext<T>,
-    suggestedCmd: string[],
-  ) => string[];
-  readonly runShellCmdOpts?: (
-    pc: fr.PluginContext<T>,
-  ) => shell.RunShellCommandOptions;
-}
-
-export interface ShellFileActionResult<T extends fr.PluginExecutive>
-  extends fr.ActionResult<T> {
-  readonly rscResult: shell.RunShellCommandResult;
-}
-
-export function isShellFileActionResult<T extends fr.PluginExecutive>(
-  o: unknown,
-): o is ShellFileActionResult<T> {
-  const isActionResult = safety.typeGuard<ShellFileActionResult<T>>(
-    "rscResult",
-  );
-  return isActionResult(o);
+  readonly envVarsSupplier?: shExtn.ShellCmdEnvVarsSupplier<T>;
+  readonly shellCmdEnhancer?: shExtn.ShellCmdEnhancer<T>;
+  readonly runShellCmdOpts?: shExtn.PrepareShellCmdRunOptions<T>;
 }
 
 export function shellFileRegistrar<T extends fr.PluginExecutive>(
@@ -80,7 +59,7 @@ export function shellFileRegistrar<T extends fr.PluginExecutive>(
             },
             options.runShellCmdOpts ? options.runShellCmdOpts(pc) : undefined,
           );
-          const actionResult: ShellFileActionResult<T> = {
+          const actionResult: shExtn.ShellExeActionResult<T> = {
             pc,
             rscResult,
           };

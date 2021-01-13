@@ -1,5 +1,6 @@
 import { fs, path, safety } from "../deps.ts";
 import * as fr from "../framework.ts";
+import * as tsExtn from "../typescript-extn.ts";
 import * as sfp from "./shell-exe-plugin.ts";
 import * as tsp from "./typescript-plugin.ts";
 
@@ -31,7 +32,7 @@ export const isFileSystemPluginSource = safety.typeGuard<
 export function fileSystemPluginRegistrar<T extends fr.PluginExecutive>(
   src: FileSystemPluginSource,
   sfro: sfp.ShellFileRegistrarOptions<T>,
-  tsro: tsp.TypeScriptRegistrarOptions,
+  tsro: tsExtn.TypeScriptRegistrarOptions,
 ): fr.PluginRegistrar | undefined {
   switch (path.extname(src.absPathAndFileName)) {
     case ".ts":
@@ -59,7 +60,7 @@ export interface DiscoverFileSystemPluginsOptions<
   readonly onValidPlugin: (vpr: fr.ValidPluginRegistration) => void;
   readonly onInvalidPlugin?: (ipr: fr.InvalidPluginRegistration) => void;
   readonly shellFileRegistryOptions: sfp.ShellFileRegistrarOptions<T>;
-  readonly typeScriptFileRegistryOptions: tsp.TypeScriptRegistrarOptions;
+  readonly typeScriptFileRegistryOptions: tsExtn.TypeScriptRegistrarOptions;
 }
 
 export async function discoverFileSystemPlugins<T extends fr.PluginExecutive>(
