@@ -123,6 +123,25 @@ export class CommandProxyPluginsManager<T extends fr.PluginExecutive>
     return result;
   }
 
+  createExecutePluginContext(
+    command: ProxyableCommand,
+    plugin: fr.Plugin,
+    options?: {
+      readonly onActivity?: fr.PluginActivityReporter;
+    },
+  ): CommandProxyPluginContext<T> {
+    return {
+      onActivity: options?.onActivity ||
+        ((a: actv.PluginActivity): actv.PluginActivity => {
+          console.log(a.message);
+          return a;
+        }),
+      container: this.executive,
+      plugin,
+      command,
+    };
+  }
+
   async execute(
     command: ProxyableCommand,
     options?: {
@@ -132,16 +151,7 @@ export class CommandProxyPluginsManager<T extends fr.PluginExecutive>
   ): Promise<fr.ActionResult<T>[]> {
     const results: fr.ActionResult<T>[] = [];
     for (const plugin of this.plugins) {
-      const cppc: CommandProxyPluginContext<T> = {
-        onActivity: options?.onActivity ||
-          ((a: actv.PluginActivity): actv.PluginActivity => {
-            console.log(a.message);
-            return a;
-          }),
-        container: this.executive,
-        plugin,
-        command,
-      };
+      const cppc = this.createExecutePluginContext(command, plugin, options);
       if (fr.isActionPlugin<T>(plugin)) {
         results.push(await plugin.execute(cppc));
       } else if (options?.onUnhandledPlugin) {
