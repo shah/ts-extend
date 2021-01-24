@@ -111,6 +111,7 @@ export class CommandProxyPluginsManager<T extends fr.PluginExecutive>
     const result: Record<string, string> = {
       [`${envVarsPrefix}PLUGIN_SRC`]: pc.plugin.source.systemID,
       [`${envVarsPrefix}PLUGIN_SRC_FRIENDLY`]: pc.plugin.source.friendlyName,
+      [`${envVarsPrefix}PLUGIN_SRC_ABBREV`]: pc.plugin.source.abbreviatedName,
       [`${envVarsPrefix}COMMAND`]: pc.command.proxyCmd,
     };
     if (pc.arguments) {
