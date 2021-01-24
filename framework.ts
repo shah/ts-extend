@@ -79,6 +79,7 @@ export type PluginIdentity = string;
 export interface PluginSource {
   readonly systemID: PluginIdentity;
   readonly friendlyName: PluginIdentity;
+  readonly abbreviatedName: PluginIdentity;
 }
 
 export const isPluginSource = safety.typeGuard<PluginSource>(
