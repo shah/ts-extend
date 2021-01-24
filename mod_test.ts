@@ -68,6 +68,10 @@ export class TestCustomPluginsManager
     this.localFsSources = ["**/*.plugin.*"];
   }
 
+  pluginByAbbrevName(name: string): mod.Plugin | undefined {
+    return this.plugins.find((p) => p.source.abbreviatedName == name);
+  }
+
   async init(): Promise<void> {
     await mod.fs.discoverFileSystemPlugins({
       discoveryPath: this.discoveryPath,
@@ -89,18 +93,27 @@ export class TestCustomPluginsManager
 Deno.test(`File system plugins discovery with custom plugins manager`, async () => {
   const pluginsMgr = new TestCustomPluginsManager();
   await pluginsMgr.init();
-  ta.assertEquals(3, pluginsMgr.plugins.length);
+  ta.assertEquals(4, pluginsMgr.plugins.length);
 
-  const shellExePlugin = pluginsMgr.plugins[0];
+  const shellExePlugin = pluginsMgr.pluginByAbbrevName(
+    "shell-exe-test.plugin.sh",
+  );
   ta.assert(mod.isShellExePlugin(shellExePlugin));
 
-  const tsAsyncPlugin = pluginsMgr.plugins[1];
+  const tsAsyncPlugin = pluginsMgr.pluginByAbbrevName(
+    "typescript-async-fn-test.plugin.ts",
+  );
   ta.assert(mod.isDenoFunctionModulePlugin(tsAsyncPlugin));
   ta.assert(tsAsyncPlugin.isAsync);
 
-  const tsSyncPlugin = pluginsMgr.plugins[2];
+  const tsSyncPlugin = pluginsMgr.pluginByAbbrevName(
+    "typescript-sync-fn-test.plugin.ts",
+  );
   ta.assert(mod.isDenoFunctionModulePlugin(tsSyncPlugin));
   ta.assertEquals(false, tsSyncPlugin.isAsync);
+
+  const tsConstructedPlugin = pluginsMgr.pluginByAbbrevName("constructed");
+  ta.assert(mod.isDenoModulePlugin(tsConstructedPlugin));
 });
 
 Deno.test(`File system plugins discovery with commands proxy plugins manager`, async () => {
@@ -122,39 +135,53 @@ Deno.test(`File system plugins discovery with commands proxy plugins manager`, a
     },
   );
   await pluginsMgr.init();
-  ta.assertEquals(3, pluginsMgr.plugins.length);
+  const pluginByAbbrevName = (name: string): mod.Plugin | undefined => {
+    return pluginsMgr.plugins.find((p) => p.source.abbreviatedName == name);
+  };
 
-  const shellExePlugin = pluginsMgr.plugins[0];
+  ta.assertEquals(4, pluginsMgr.plugins.length);
+
+  const shellExePlugin = pluginByAbbrevName(
+    "shell-exe-test.cmd-plugin.sh",
+  );
   ta.assert(mod.isShellExePlugin(shellExePlugin));
 
-  const tsAsyncPlugin = pluginsMgr.plugins[1];
+  const tsAsyncPlugin = pluginByAbbrevName(
+    "typescript-async-fn-test.cmd-plugin.ts",
+  );
   ta.assert(mod.isDenoFunctionModulePlugin(tsAsyncPlugin));
   ta.assert(tsAsyncPlugin.isAsync);
 
-  const tsSyncPlugin = pluginsMgr.plugins[2];
+  const tsSyncPlugin = pluginByAbbrevName(
+    "typescript-sync-fn-test.cmd-plugin.ts",
+  );
   ta.assert(mod.isDenoFunctionModulePlugin(tsSyncPlugin));
   ta.assertEquals(false, tsSyncPlugin.isAsync);
 
-  const results = await pluginsMgr.execute(describeCmd);
-  ta.assertEquals(3, results.length);
+  const tsConstructedPlugin = pluginByAbbrevName("constructed");
+  ta.assert(mod.isDenoModulePlugin(tsConstructedPlugin));
 
-  const shellExeResult = results[0];
-  if (mod.isShellExeActionResult(shellExeResult)) {
-    if (shell.isExecutionResult(shellExeResult.rscResult)) {
-      const expected =
-        "Describe what will be generated in 'test.auto.md' in '.' by shell-exe-test.cmd-plugin.sh\n";
-      const output = new TextDecoder().decode(shellExeResult.rscResult.stdOut);
-      assertEquals(output, expected);
+  let unhandledCount = 0;
+  const results = await pluginsMgr.execute(describeCmd, {
+    onUnhandledPlugin: (cppc) => {
+      unhandledCount++;
+      console.error("UNABLE TO EXECUTE");
+      console.dir(cppc);
+    },
+  });
+  ta.assertEquals(0, unhandledCount);
+  ta.assertEquals(4, results.length);
+
+  results.forEach((r) => {
+    if (mod.isShellExeActionResult(r)) {
+      if (shell.isExecutionResult(r.rscResult)) {
+        const expected =
+          "Describe what will be generated in 'test.auto.md' in '.' by shell-exe-test.cmd-plugin.sh\n";
+        const output = new TextDecoder().decode(
+          r.rscResult.stdOut,
+        );
+        assertEquals(output, expected);
+      }
     }
-  }
-
-  const asyncFnResult = results[1];
-  if (mod.isDenoFunctionModuleActionResult(asyncFnResult)) {
-    assert(asyncFnResult.dfmhResult);
-  }
-
-  const syncFnResult = results[2];
-  if (mod.isDenoFunctionModuleActionResult(syncFnResult)) {
-    assert(syncFnResult.dfmhResult);
-  }
+  });
 });

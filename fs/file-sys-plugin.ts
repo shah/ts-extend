@@ -75,6 +75,7 @@ export async function discoverFileSystemPlugins<T extends fr.PluginExecutive>(
           glob,
           systemID: we.path,
           friendlyName: path.relative(discoveryPath, we.path),
+          abbreviatedName: path.basename(we.path),
           absPathAndFileName: we.path,
         };
 

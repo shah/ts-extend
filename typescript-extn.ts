@@ -1,4 +1,4 @@
-import { safety, safety as tsExtn } from "./deps.ts";
+import { colors, safety, safety as tsExtn } from "./deps.ts";
 import * as fr from "./framework.ts";
 
 export interface DenoModulePlugin extends fr.Plugin {
@@ -67,8 +67,22 @@ export function registerDenoFunctionModule<
 ): fr.ValidPluginRegistration | fr.InvalidPluginRegistration {
   // deno-lint-ignore no-explicit-any
   const module = potential.module as any;
-  if (typeof module.default === "function") {
-    const handler = module.default as DenoFunctionModuleHandler<T>;
+  const moduleDefault = module.default;
+
+  if (fr.isValidPluginRegistration(moduleDefault)) {
+    return moduleDefault;
+  }
+
+  if (isDenoModulePlugin(moduleDefault)) {
+    const result: fr.ValidPluginRegistration = {
+      plugin: moduleDefault,
+      source: moduleDefault.source,
+    };
+    return result;
+  }
+
+  if (typeof moduleDefault === "function") {
+    const handler = moduleDefault as DenoFunctionModuleHandler<T>;
     const isAsync = handler.constructor.name === "AsyncFunction";
     const plugin: DenoFunctionModulePlugin<T> & fr.Action<T> = {
       ...potential,
@@ -89,14 +103,18 @@ export function registerDenoFunctionModule<
       plugin,
     };
     return result;
-  } else {
-    const result: fr.InvalidPluginRegistration = {
-      source: potential.source,
-      issues: [{
-        source: potential.source,
-        diagnostics: [`does not have a default function`],
-      }],
-    };
-    return result;
   }
+
+  const result: fr.InvalidPluginRegistration = {
+    source: potential.source,
+    issues: [{
+      source: potential.source,
+      diagnostics: [
+        `invalid plugin: typeof 'default' is ${
+          colors.yellow(typeof moduleDefault)
+        } (expected function, DenoFunctionModulePlugin, or ValidPluginRegistration instance)`,
+      ],
+    }],
+  };
+  return result;
 }
