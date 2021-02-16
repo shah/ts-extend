@@ -1,4 +1,4 @@
-import { path, safety, shell } from "../deps.ts";
+import { path, shell } from "../deps.ts";
 import * as fr from "../framework.ts";
 import * as shExtn from "../shell-exe-extn.ts";
 import * as fs from "./file-sys-plugin.ts";
@@ -9,9 +9,9 @@ export interface ShellFileRegistrarOptions<T extends fr.PluginExecutive> {
   readonly runShellCmdOpts?: shExtn.PrepareShellCmdRunOptions<T>;
 }
 
-export function shellFileRegistrar<T extends fr.PluginExecutive>(
+export function shellFileRegistrarSync<T extends fr.PluginExecutive>(
   options: ShellFileRegistrarOptions<T>,
-): fr.PluginRegistrar {
+): fr.PluginRegistrarSync {
   const isExecutable = (path: string): false | string[] => {
     const fi = Deno.statSync(path);
     const isExe = fi.mode != null ? (fi.mode & 0o0001 ? true : false) : true;
@@ -21,8 +21,7 @@ export function shellFileRegistrar<T extends fr.PluginExecutive>(
     return false;
   };
 
-  // deno-lint-ignore require-await
-  return async (source: fr.PluginSource): Promise<fr.PluginRegistration> => {
+  return (source: fr.PluginSource): fr.PluginRegistration => {
     if (fs.isFileSystemPluginSource(source)) {
       const isExecutableCmd = isExecutable(source.absPathAndFileName);
       if (!isExecutableCmd) {
@@ -79,5 +78,16 @@ export function shellFileRegistrar<T extends fr.PluginExecutive>(
       }],
     };
     return result;
+  };
+}
+
+export function shellFileRegistrar<T extends fr.PluginExecutive>(
+  options: ShellFileRegistrarOptions<T>,
+): fr.PluginRegistrar {
+  const regSync = shellFileRegistrarSync(options);
+
+  // deno-lint-ignore require-await
+  return async (source: fr.PluginSource): Promise<fr.PluginRegistration> => {
+    return regSync(source);
   };
 }
