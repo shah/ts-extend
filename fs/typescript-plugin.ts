@@ -12,8 +12,8 @@ export function typeScriptFileRegistrar(
         // the ts-extn package is going to be URL-imported but the files
         // we're importing are local to the calling pubctl.ts in the project
         // so we need to use absolute paths
-        const module = await import(
-          path.toFileUrl(source.absPathAndFileName).toString()
+        const module = await tsro.importModule(
+          path.toFileUrl(source.absPathAndFileName),
         );
         if (module) {
           const potential: tsExtn.DenoModulePlugin = {

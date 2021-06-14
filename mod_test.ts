@@ -85,6 +85,7 @@ export class TestCustomPluginsManager
       shellFileRegistryOptions: testShellCmdRegistrarOptions,
       typeScriptFileRegistryOptions: {
         validateModule: mod.registerDenoFunctionModule,
+        importModule: mod.importCachedModule,
       },
     });
   }

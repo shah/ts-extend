@@ -1,5 +1,6 @@
 import { colors, safety, safety as tsExtn } from "./deps.ts";
 import * as fr from "./framework.ts";
+import { Cache, lruCache } from "./cache.ts";
 
 export interface DenoModulePlugin extends fr.Plugin {
   readonly module: unknown;
@@ -19,6 +20,7 @@ export interface TypeScriptModuleRegistrationSupplier {
 
 export interface TypeScriptRegistrarOptions {
   readonly validateModule: TypeScriptModuleRegistrationSupplier;
+  readonly importModule: (src: URL) => Promise<unknown>;
 }
 
 export interface DenoFunctionModulePlugin<T extends fr.PluginExecutive>
@@ -58,6 +60,30 @@ export function isDenoFunctionModuleActionResult<T extends fr.PluginExecutive>(
     "dfmhResult",
   );
   return isDfmaResult(o);
+}
+
+export interface ModuleCacheEntry {
+  readonly source: URL;
+  readonly module: unknown;
+}
+
+const cachedModules: Cache<ModuleCacheEntry> = lruCache();
+
+export async function importUncachedModule(src: URL): Promise<unknown> {
+  return await import(src.toString());
+}
+
+export async function importCachedModule(source: URL): Promise<unknown> {
+  const key = source.toString();
+  let mce = cachedModules[source.toString()];
+  if (!mce) {
+    mce = {
+      source,
+      module: await importUncachedModule(source),
+    };
+    cachedModules[key] = mce;
+  }
+  return mce.module;
 }
 
 export function registerDenoFunctionModule<

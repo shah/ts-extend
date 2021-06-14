@@ -34,16 +34,16 @@ export function isCommandProxyPluginContext<T extends fr.PluginExecutive>(
 }
 
 /**
-   * defaultTypeScriptPluginResultEnhancer should be called by all Deno 
-   * TypeScript plugins so that we can do centralized "enhancing" of the 
-   * results of any extension. This allows logging, middleware, and other 
+   * defaultTypeScriptPluginResultEnhancer should be called by all Deno
+   * TypeScript plugins so that we can do centralized "enhancing" of the
+   * results of any extension. This allows logging, middleware, and other
    * standard function handling capabilities.
-   * @param dfmhResult 
+   * @param dfmhResult
    */
 export function defaultTypeScriptPluginResultEnhancer<
   T extends fr.PluginExecutive,
 >(
-  cppc: CommandProxyPluginContext<T>,
+  _cppc: CommandProxyPluginContext<T>,
   dfmhResult?: tsExtn.DenoFunctionModuleHandlerResult,
 ): tsExtn.DenoFunctionModuleHandlerResult {
   if (!dfmhResult) return {};

@@ -70,6 +70,7 @@ export class CommandProxyFileSystemPluginsManager<
       },
       typeScriptFileRegistryOptions: this.options.typeScriptModuleOptions || {
         validateModule: tsExtn.registerDenoFunctionModule,
+        importModule: tsExtn.importCachedModule,
       },
     });
   }
