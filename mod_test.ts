@@ -1,6 +1,7 @@
 import { testingAsserts as ta } from "./deps-test.ts";
 import * as mod from "./mod.ts";
 import { path, shell } from "./deps.ts";
+
 const testModuleLocalFsPath = path.relative(
   Deno.cwd(),
   path.dirname(import.meta.url).substr("file://".length),
@@ -91,7 +92,7 @@ export class TestCustomPluginsManager
 Deno.test(`File system plugins discovery with custom plugins manager`, async () => {
   const pluginsMgr = new TestCustomPluginsManager();
   await pluginsMgr.init();
-  ta.assertEquals(4, pluginsMgr.plugins.length);
+  ta.assertEquals(6, pluginsMgr.plugins.length);
 
   const shellExePlugin = pluginsMgr.pluginByAbbrevName(
     "shell-exe-test.plugin.sh",
@@ -104,6 +105,16 @@ Deno.test(`File system plugins discovery with custom plugins manager`, async () 
   ta.assert(mod.isDenoFunctionModulePlugin(tsAsyncPlugin));
   if (mod.isDenoFunctionModulePlugin(tsAsyncPlugin)) {
     ta.assert(tsAsyncPlugin.isAsync);
+    ta.assertEquals(false, tsAsyncPlugin.isGenerator);
+  }
+
+  const tsAsyncGenPlugin = pluginsMgr.pluginByAbbrevName(
+    "typescript-async-gfn-test.plugin.ts",
+  );
+  ta.assert(mod.isDenoFunctionModulePlugin(tsAsyncGenPlugin));
+  if (mod.isDenoFunctionModulePlugin(tsAsyncGenPlugin)) {
+    ta.assert(tsAsyncGenPlugin.isAsync);
+    ta.assert(tsAsyncGenPlugin.isGenerator);
   }
 
   const tsSyncPlugin = pluginsMgr.pluginByAbbrevName(
@@ -112,6 +123,16 @@ Deno.test(`File system plugins discovery with custom plugins manager`, async () 
   ta.assert(mod.isDenoFunctionModulePlugin(tsSyncPlugin));
   if (mod.isDenoFunctionModulePlugin(tsSyncPlugin)) {
     ta.assertEquals(false, tsSyncPlugin.isAsync);
+    ta.assertEquals(false, tsSyncPlugin.isGenerator);
+  }
+
+  const tsSyncGenPlugin = pluginsMgr.pluginByAbbrevName(
+    "typescript-sync-gfn-test.plugin.ts",
+  );
+  ta.assert(mod.isDenoFunctionModulePlugin(tsSyncPlugin));
+  if (mod.isDenoFunctionModulePlugin(tsSyncGenPlugin)) {
+    ta.assertEquals(false, tsSyncGenPlugin.isAsync);
+    ta.assert(tsSyncGenPlugin.isGenerator);
   }
 
   const tsConstructedPlugin = pluginsMgr.pluginByAbbrevName("constructed");
@@ -141,7 +162,7 @@ Deno.test(`File system plugins discovery with commands proxy plugins manager`, a
     return pluginsMgr.plugins.find((p) => p.source.abbreviatedName == name);
   };
 
-  ta.assertEquals(4, pluginsMgr.plugins.length);
+  ta.assertEquals(6, pluginsMgr.plugins.length);
 
   const shellExePlugin = pluginByAbbrevName(
     "shell-exe-test.cmd-plugin.sh",
@@ -154,6 +175,16 @@ Deno.test(`File system plugins discovery with commands proxy plugins manager`, a
   ta.assert(mod.isDenoFunctionModulePlugin(tsAsyncPlugin));
   if (mod.isDenoFunctionModulePlugin(tsAsyncPlugin)) {
     ta.assert(tsAsyncPlugin.isAsync);
+    ta.assertEquals(false, tsAsyncPlugin.isGenerator);
+  }
+
+  const tsAsyncGenPlugin = pluginByAbbrevName(
+    "typescript-async-gfn-test.cmd-plugin.ts",
+  );
+  ta.assert(mod.isDenoFunctionModulePlugin(tsAsyncGenPlugin));
+  if (mod.isDenoFunctionModulePlugin(tsAsyncGenPlugin)) {
+    ta.assert(tsAsyncGenPlugin.isAsync);
+    ta.assert(tsAsyncGenPlugin.isGenerator);
   }
 
   const tsSyncPlugin = pluginByAbbrevName(
@@ -162,6 +193,16 @@ Deno.test(`File system plugins discovery with commands proxy plugins manager`, a
   ta.assert(mod.isDenoFunctionModulePlugin(tsSyncPlugin));
   if (mod.isDenoFunctionModulePlugin(tsSyncPlugin)) {
     ta.assertEquals(false, tsSyncPlugin.isAsync);
+    ta.assertEquals(false, tsSyncPlugin.isGenerator);
+  }
+
+  const tsSyncGenPlugin = pluginByAbbrevName(
+    "typescript-sync-gfn-test.cmd-plugin.ts",
+  );
+  ta.assert(mod.isDenoFunctionModulePlugin(tsSyncGenPlugin));
+  if (mod.isDenoFunctionModulePlugin(tsSyncGenPlugin)) {
+    ta.assertEquals(false, tsSyncGenPlugin.isAsync);
+    ta.assert(tsSyncGenPlugin.isGenerator);
   }
 
   const tsConstructedPlugin = pluginByAbbrevName("constructed");
@@ -176,7 +217,7 @@ Deno.test(`File system plugins discovery with commands proxy plugins manager`, a
     },
   });
   ta.assertEquals(0, unhandledCount);
-  ta.assertEquals(4, results.length);
+  ta.assertEquals(6, results.length);
 
   results.forEach((r) => {
     if (mod.isShellExeActionResult(r)) {

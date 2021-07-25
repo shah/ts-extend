@@ -27,25 +27,45 @@ export interface DenoFunctionModulePlugin<T extends fr.PluginExecutive>
   extends DenoModulePlugin {
   readonly handler: DenoFunctionModuleHandler<T>;
   readonly isAsync: boolean;
+  readonly isGenerator: boolean;
+}
+
+export function isGeneratorFunction(o: unknown) {
+  if (typeof o !== "function") {
+    return false;
+  }
+
+  const name = o.constructor.name;
+  return (name === "GeneratorFunction" || name === "AsyncGeneratorFunction");
 }
 
 export function isDenoFunctionModulePlugin<T extends fr.PluginExecutive>(
   o: unknown,
 ): o is DenoFunctionModulePlugin<T> {
   if (isDenoModulePlugin(o)) {
-    return "handler" in o && "isAsync" in o;
+    return "handler" in o && "isAsync" in o && "isGenerator" in o;
   }
   return false;
 }
 
-// deno-lint-ignore no-empty-interface
-export interface DenoFunctionModuleHandlerResult {
-}
+export type DenoFunctionModuleHandlerResult = unknown;
 
 export interface DenoFunctionModuleHandler<T extends fr.PluginExecutive> {
   (
     pc: fr.PluginContext<T>,
-  ): Promise<DenoFunctionModuleHandlerResult> | DenoFunctionModuleHandlerResult;
+  ):
+    | Promise<DenoFunctionModuleHandlerResult>
+    | DenoFunctionModuleHandlerResult
+    | Promise<
+      Generator<
+        DenoFunctionModuleHandlerResult,
+        DenoFunctionModuleHandlerResult
+      >
+    >
+    | Generator<
+      DenoFunctionModuleHandlerResult,
+      DenoFunctionModuleHandlerResult
+    >;
 }
 
 export interface DenoFunctionModuleActionResult<T extends fr.PluginExecutive>
@@ -109,12 +129,17 @@ export function registerDenoFunctionModule<
 
   if (typeof moduleDefault === "function") {
     const handler = moduleDefault as DenoFunctionModuleHandler<T>;
-    const isAsync = handler.constructor.name === "AsyncFunction";
+    const handlerConstrName = handler.constructor.name;
+    const isGenerator = (handlerConstrName === "GeneratorFunction" ||
+      handlerConstrName === "AsyncGeneratorFunction");
+    const isAsync = handlerConstrName === "AsyncFunction" ||
+      handlerConstrName === "AsyncGeneratorFunction";
     const plugin: DenoFunctionModulePlugin<T> & fr.Action<T> = {
       ...potential,
       nature: { identity: "deno-module-function" },
       handler,
       isAsync,
+      isGenerator,
       execute: async (pc: fr.PluginContext<T>): Promise<fr.ActionResult<T>> => {
         const dfmhResult = isAsync ? await handler(pc) : handler(pc);
         const actionResult: DenoFunctionModuleActionResult<T> = {

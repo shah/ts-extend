@@ -85,6 +85,7 @@ export interface PluginSource {
 export const isPluginSource = safety.typeGuard<PluginSource>(
   "systemID",
   "friendlyName",
+  "abbreviatedName",
 );
 
 export interface Plugin {

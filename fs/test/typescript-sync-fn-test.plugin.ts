@@ -2,7 +2,7 @@ import * as mod from "../../mod.ts";
 import * as modT from "../../mod_test.ts";
 
 export function testSyncPluginFunction(
-  pc: mod.PluginContext<modT.TestExecutive>,
+  _pc: mod.PluginContext<modT.TestExecutive>,
 ): void {
   console.log("Hello World from TypeScript testSyncPluginFunction");
 }
