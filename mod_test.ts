@@ -1,6 +1,6 @@
+import { cxg, govnSvcTelemetry as telem, path, shell } from "./deps.ts";
 import { testingAsserts as ta } from "./deps-test.ts";
 import * as mod from "./mod.ts";
-import { path, shell } from "./deps.ts";
 
 const testModuleLocalFsPath = path.relative(
   Deno.cwd(),
@@ -41,16 +41,20 @@ const testShellCmdRegistrarOptions: mod.fs.ShellFileRegistrarOptions<
     };
     return result;
   },
+  telemetry: new telem.Telemetry(),
 };
 
-export class TestExecutive implements mod.PluginExecutive {
+export class TestExecutive {
 }
 
 export class TestContext implements mod.PluginContext<TestExecutive> {
   constructor(readonly container: TestExecutive, readonly plugin: mod.Plugin) {
   }
 
-  onActivity(a: mod.PluginActivity, options?: { dryRun?: boolean }): void {
+  onActivity(
+    a: mod.PluginActivity,
+    options?: { readonly dryRun?: boolean },
+  ): void {
     console.log(a.message, "dryRun:", options?.dryRun);
   }
 }
@@ -59,8 +63,10 @@ export class TestCustomPluginsManager
   implements mod.fs.FileSystemPluginsSupplier {
   readonly discoveryPath = path.join(testModuleLocalFsPath, "fs", "test");
   readonly plugins: mod.Plugin[] = [];
+  readonly pluginsGraph = new cxg.CxGraph();
   readonly invalidPlugins: mod.InvalidPluginRegistration[] = [];
   readonly localFsSources: mod.fs.FileSystemGlobs;
+  readonly telemetry = new mod.TypicalTypeScriptRegistrarTelemetry();
 
   constructor() {
     this.localFsSources = ["**/*.plugin.*"];
@@ -76,6 +82,7 @@ export class TestCustomPluginsManager
       globs: this.localFsSources,
       onValidPlugin: (vpr) => {
         this.plugins.push(vpr.plugin);
+        vpr.plugin.registerNode(this.pluginsGraph);
       },
       onInvalidPlugin: (ipr) => {
         this.invalidPlugins.push(ipr);
@@ -83,7 +90,10 @@ export class TestCustomPluginsManager
       shellFileRegistryOptions: testShellCmdRegistrarOptions,
       typeScriptFileRegistryOptions: {
         validateModule: mod.registerDenoFunctionModule,
-        importModule: mod.importCachedModule,
+        importModule: (source) => {
+          return mod.importCachedModule(source, this.telemetry);
+        },
+        telemetry: this.telemetry,
       },
     });
   }
@@ -93,6 +103,12 @@ Deno.test(`File system plugins discovery with custom plugins manager`, async () 
   const pluginsMgr = new TestCustomPluginsManager();
   await pluginsMgr.init();
   ta.assertEquals(6, pluginsMgr.plugins.length);
+
+  // TODO: update as more telemetry is added, right now only TypeScript modules are instrumented
+  ta.assertEquals(5, pluginsMgr.telemetry.instruments.length);
+
+  // TODO: register depenedencies and test the graph
+  // console.dir(pluginsMgr.pluginsGraph);
 
   const shellExePlugin = pluginsMgr.pluginByAbbrevName(
     "shell-exe-test.plugin.sh",
@@ -122,6 +138,10 @@ Deno.test(`File system plugins discovery with custom plugins manager`, async () 
   );
   ta.assert(mod.isDenoFunctionModulePlugin(tsSyncPlugin));
   if (mod.isDenoFunctionModulePlugin(tsSyncPlugin)) {
+    ta.assertEquals(
+      tsSyncPlugin.source.graphNodeName,
+      "testSyncPluginFunction-graphNodeName",
+    );
     ta.assertEquals(false, tsSyncPlugin.isAsync);
     ta.assertEquals(false, tsSyncPlugin.isGenerator);
   }
@@ -137,6 +157,7 @@ Deno.test(`File system plugins discovery with custom plugins manager`, async () 
 
   const tsConstructedPlugin = pluginsMgr.pluginByAbbrevName("constructed");
   ta.assert(mod.isDenoModulePlugin(tsConstructedPlugin));
+  ta.assert("executeCountState" in tsConstructedPlugin);
 });
 
 Deno.test(`File system plugins discovery with commands proxy plugins manager`, async () => {
@@ -163,6 +184,9 @@ Deno.test(`File system plugins discovery with commands proxy plugins manager`, a
   };
 
   ta.assertEquals(6, pluginsMgr.plugins.length);
+
+  // TODO: register depenedencies and test the graph
+  // console.dir(pluginsMgr.pluginsGraph);
 
   const shellExePlugin = pluginByAbbrevName(
     "shell-exe-test.cmd-plugin.sh",
@@ -218,6 +242,10 @@ Deno.test(`File system plugins discovery with commands proxy plugins manager`, a
   });
   ta.assertEquals(0, unhandledCount);
   ta.assertEquals(6, results.length);
+
+  ta.assert("executeCountState" in tsConstructedPlugin);
+  // deno-lint-ignore no-explicit-any
+  ta.assert((tsConstructedPlugin as any).executeCountState > 0);
 
   results.forEach((r) => {
     if (mod.isShellExeActionResult(r)) {

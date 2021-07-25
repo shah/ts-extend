@@ -1,5 +1,5 @@
-import * as cp from "../cmd-proxy.ts";
 import { path, shell } from "../deps.ts";
+import * as cp from "../cmd-proxy.ts";
 import * as fr from "../framework.ts";
 import * as tsExtn from "../typescript-extn.ts";
 import * as fsp from "./file-sys-plugin.ts";
@@ -23,6 +23,7 @@ export class CommandProxyFileSystemPluginsManager<
   }
 
   async init(): Promise<void> {
+    const telemetry = new tsExtn.TypicalTypeScriptRegistrarTelemetry();
     await fsp.discoverFileSystemPlugins({
       discoveryPath: this.options.discoveryPath,
       globs: this.options.localFsSources,
@@ -67,10 +68,14 @@ export class CommandProxyFileSystemPluginsManager<
               return {};
             }
           ),
+        telemetry,
       },
       typeScriptFileRegistryOptions: this.options.typeScriptModuleOptions || {
         validateModule: tsExtn.registerDenoFunctionModule,
-        importModule: tsExtn.importCachedModule,
+        importModule: (source: URL) => {
+          return tsExtn.importCachedModule(source, telemetry);
+        },
+        telemetry,
       },
     });
   }

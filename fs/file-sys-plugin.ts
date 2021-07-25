@@ -77,6 +77,7 @@ export async function discoverFileSystemPlugins<T extends fr.PluginExecutive>(
           friendlyName: path.relative(discoveryPath, we.path),
           abbreviatedName: path.basename(we.path),
           absPathAndFileName: we.path,
+          graphNodeName: path.relative(discoveryPath, we.path),
         };
 
         const register = fileSystemPluginRegistrar(

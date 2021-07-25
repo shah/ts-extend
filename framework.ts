@@ -1,15 +1,15 @@
+import { cxg, safety } from "./deps.ts";
 import * as actv from "./activity.ts";
-import { safety } from "./deps.ts";
 
-// deno-lint-ignore no-empty-interface
-export interface PluginExecutive {
-}
+export type PluginExecutive = unknown;
 
 export type PluginNatureIdentity = string;
 
 export interface PluginNature {
   readonly identity: PluginNatureIdentity;
 }
+
+export const isPluginNature = safety.typeGuard<PluginNature>("identity");
 
 export interface PluginRegistrationIssue {
   readonly source: PluginSource;
@@ -51,6 +51,7 @@ export interface PluginRegistrarSync {
 
 export interface PluginsSupplier {
   readonly plugins: Plugin[];
+  readonly pluginsGraph: cxg.CxGraph;
 }
 
 export interface PluginActivityReporter {
@@ -75,25 +76,33 @@ export function isPluginContext<T extends PluginExecutive>(
 }
 
 export type PluginIdentity = string;
+export type PluginGraphNodeIdentity = string;
 
 export interface PluginSource {
   readonly systemID: PluginIdentity;
   readonly friendlyName: PluginIdentity;
   readonly abbreviatedName: PluginIdentity;
+  readonly graphNodeName: PluginGraphNodeIdentity;
 }
 
 export const isPluginSource = safety.typeGuard<PluginSource>(
   "systemID",
   "friendlyName",
   "abbreviatedName",
+  "graphNodeName",
 );
 
 export interface Plugin {
   readonly nature: PluginNature;
   readonly source: PluginSource;
+  readonly registerNode: (graph: cxg.CxGraph) => cxg.Node<Plugin>;
 }
 
-export const isPlugin = safety.typeGuard<Plugin>("nature", "source");
+export const isPlugin = safety.typeGuard<Plugin>(
+  "nature",
+  "source",
+  "registerNode",
+);
 
 export interface ActionResult<T extends PluginExecutive> {
   readonly pc: PluginContext<T>;

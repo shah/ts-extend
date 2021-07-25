@@ -34,6 +34,16 @@ functionality without needing to touch your core, you should use this
 
 ## TODO
 
-- Create ActionSync and FilterSync versions of Action and Filter
+- Add serviceHealth (ServiceHealthSupplier) for indicating healthy or unhealthy
+  plugins
+- Create plugin dependency management using
+  [CxGraph](https://github.com/cfjello/cxgraph)
+- Create `ContextPlugin` which has a `prepareContext(PluginContext)` method
+  which only prepares a context that multiple extensions can use.
+- Create `ActionSync` and `FilterSync` versions of Action and Filter
+- Consider adding ActionGenerateSync and FilterGenerateSync versions of Action
+  and Filter
+- Allow `Action*` or `Filter*` to implement `PluginSupplier` or other methods
+  that will force rescanning of plugins in case they generate plugins
 - Add ability for a `Plugin` to be a `PluginSupplier` so a plugin can register
   other dependent extensions.

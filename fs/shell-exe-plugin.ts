@@ -1,4 +1,4 @@
-import { path, shell } from "../deps.ts";
+import { cxg, govnSvcTelemetry as telem, path, shell } from "../deps.ts";
 import * as fr from "../framework.ts";
 import * as shExtn from "../shell-exe-extn.ts";
 import * as fs from "./file-sys-plugin.ts";
@@ -7,6 +7,7 @@ export interface ShellFileRegistrarOptions<T extends fr.PluginExecutive> {
   readonly envVarsSupplier?: shExtn.ShellCmdEnvVarsSupplier<T>;
   readonly shellCmdEnhancer?: shExtn.ShellCmdEnhancer<T>;
   readonly runShellCmdOpts?: shExtn.PrepareShellCmdRunOptions<T>;
+  readonly telemetry: telem.Telemetry;
 }
 
 export function shellFileRegistrarSync<T extends fr.PluginExecutive>(
@@ -33,9 +34,17 @@ export function shellFileRegistrarSync<T extends fr.PluginExecutive>(
         };
         return result;
       }
-      const plugin: shExtn.ShellExePlugin<T> = {
+      const graphNode = new cxg.Node<fr.Plugin>(source.graphNodeName);
+      const plugin: shExtn.ShellExePlugin<T> & {
+        readonly graphNode: cxg.Node<fr.Plugin>;
+      } = {
         source,
         nature: { identity: "shell-file-executable" },
+        graphNode,
+        registerNode: (graph) => {
+          graph.addNode(graphNode);
+          return graphNode;
+        },
         envVars: options.envVarsSupplier,
         shellCmd: (pc: fr.PluginContext<T>): string[] => {
           return options.shellCmdEnhancer

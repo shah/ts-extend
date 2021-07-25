@@ -1,11 +1,17 @@
-import { safety } from "./deps.ts";
+import { cxg, safety } from "./deps.ts";
 import * as actv from "./activity.ts";
 import * as fr from "./framework.ts";
 import * as shExtn from "./shell-exe-extn.ts";
 import * as tsExtn from "./typescript-extn.ts";
 
+/**
+ * ProxyableCommandText is the name of a "hook" that can be extended.
+ */
 export type ProxyableCommandText = string;
 
+/**
+ * ProxyableCommand is a "hook" that can be executed by plugin.
+ */
 export interface ProxyableCommand {
   readonly proxyCmd: ProxyableCommandText;
 }
@@ -63,6 +69,7 @@ export interface CommandProxyPluginsManagerOptions<
 export class CommandProxyPluginsManager<T extends fr.PluginExecutive>
   implements fr.PluginsSupplier {
   readonly plugins: fr.Plugin[] = [];
+  readonly pluginsGraph = new cxg.CxGraph();
   readonly invalidPlugins: fr.InvalidPluginRegistration[] = [];
 
   constructor(
@@ -79,6 +86,7 @@ export class CommandProxyPluginsManager<T extends fr.PluginExecutive>
     // TODO: make sure not to register duplicates; if it's a duplicate,
     // do not add, just return the existing one
     this.plugins.push(vpr.plugin);
+    vpr.plugin.registerNode(this.pluginsGraph);
     return vpr.plugin;
   }
 

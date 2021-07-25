@@ -1,4 +1,4 @@
-import { colors, safety, safety as tsExtn } from "./deps.ts";
+import { colors, govnSvcTelemetry as telem, safety } from "./deps.ts";
 import * as fr from "./framework.ts";
 import { Cache, lruCache } from "./cache.ts";
 
@@ -6,7 +6,7 @@ export interface DenoModulePlugin extends fr.Plugin {
   readonly module: unknown;
 }
 
-export const isDenoModulePlugin = tsExtn.typeGuard<DenoModulePlugin>(
+export const isDenoModulePlugin = safety.typeGuard<DenoModulePlugin>(
   "nature",
   "source",
   "module",
@@ -18,9 +18,14 @@ export interface TypeScriptModuleRegistrationSupplier {
   ): fr.ValidPluginRegistration | fr.InvalidPluginRegistration;
 }
 
+export interface TypeScriptRegistrarTelemetry extends telem.Instrumentation {
+  readonly import: (source: URL) => telem.Instrumentable;
+}
+
 export interface TypeScriptRegistrarOptions {
   readonly validateModule: TypeScriptModuleRegistrationSupplier;
   readonly importModule: (src: URL) => Promise<unknown>;
+  readonly telemetry: TypeScriptRegistrarTelemetry;
 }
 
 export interface DenoFunctionModulePlugin<T extends fr.PluginExecutive>
@@ -89,17 +94,26 @@ export interface ModuleCacheEntry {
 
 const cachedModules: Cache<ModuleCacheEntry> = lruCache();
 
-export async function importUncachedModule(src: URL): Promise<unknown> {
-  return await import(src.toString());
+export async function importUncachedModule(
+  src: URL,
+  telemetry: TypeScriptRegistrarTelemetry,
+): Promise<unknown> {
+  const instr = telemetry.import(src);
+  const module = await import(src.toString());
+  instr.measure();
+  return module;
 }
 
-export async function importCachedModule(source: URL): Promise<unknown> {
+export async function importCachedModule(
+  source: URL,
+  telemetry: TypeScriptRegistrarTelemetry,
+): Promise<unknown> {
   const key = source.toString();
   let mce = cachedModules[source.toString()];
   if (!mce) {
     mce = {
       source,
-      module: await importUncachedModule(source),
+      module: await importUncachedModule(source, telemetry),
     };
     cachedModules[key] = mce;
   }
@@ -168,4 +182,14 @@ export function registerDenoFunctionModule<
     }],
   };
   return result;
+}
+
+export class TypicalTypeScriptRegistrarTelemetry extends telem.Telemetry
+  implements TypeScriptRegistrarTelemetry {
+  import(source: URL): telem.Instrumentable {
+    return this.prepareInstrument({
+      identity: "TypeScriptRegistrar.import",
+      baggage: { source },
+    });
+  }
 }
