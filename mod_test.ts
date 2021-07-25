@@ -1,9 +1,6 @@
 import { testingAsserts as ta } from "./deps-test.ts";
 import * as mod from "./mod.ts";
 import { path, shell } from "./deps.ts";
-import { assert } from "https://deno.land/std@0.83.0/_util/assert.ts";
-import { assertEquals } from "https://deno.land/std@0.83.0/testing/asserts.ts";
-
 const testModuleLocalFsPath = path.relative(
   Deno.cwd(),
   path.dirname(import.meta.url).substr("file://".length),
@@ -13,7 +10,7 @@ const testShellCmdRegistrarOptions: mod.fs.ShellFileRegistrarOptions<
   TestExecutive
 > = {
   shellCmdEnhancer: (
-    pc: mod.PluginContext<TestExecutive>,
+    _pc: mod.PluginContext<TestExecutive>,
     suggestedCmd: string[],
   ): string[] => {
     const cmd = [...suggestedCmd];
@@ -105,13 +102,17 @@ Deno.test(`File system plugins discovery with custom plugins manager`, async () 
     "typescript-async-fn-test.plugin.ts",
   );
   ta.assert(mod.isDenoFunctionModulePlugin(tsAsyncPlugin));
-  ta.assert(tsAsyncPlugin.isAsync);
+  if (mod.isDenoFunctionModulePlugin(tsAsyncPlugin)) {
+    ta.assert(tsAsyncPlugin.isAsync);
+  }
 
   const tsSyncPlugin = pluginsMgr.pluginByAbbrevName(
     "typescript-sync-fn-test.plugin.ts",
   );
   ta.assert(mod.isDenoFunctionModulePlugin(tsSyncPlugin));
-  ta.assertEquals(false, tsSyncPlugin.isAsync);
+  if (mod.isDenoFunctionModulePlugin(tsSyncPlugin)) {
+    ta.assertEquals(false, tsSyncPlugin.isAsync);
+  }
 
   const tsConstructedPlugin = pluginsMgr.pluginByAbbrevName("constructed");
   ta.assert(mod.isDenoModulePlugin(tsConstructedPlugin));
@@ -151,13 +152,17 @@ Deno.test(`File system plugins discovery with commands proxy plugins manager`, a
     "typescript-async-fn-test.cmd-plugin.ts",
   );
   ta.assert(mod.isDenoFunctionModulePlugin(tsAsyncPlugin));
-  ta.assert(tsAsyncPlugin.isAsync);
+  if (mod.isDenoFunctionModulePlugin(tsAsyncPlugin)) {
+    ta.assert(tsAsyncPlugin.isAsync);
+  }
 
   const tsSyncPlugin = pluginByAbbrevName(
     "typescript-sync-fn-test.cmd-plugin.ts",
   );
   ta.assert(mod.isDenoFunctionModulePlugin(tsSyncPlugin));
-  ta.assertEquals(false, tsSyncPlugin.isAsync);
+  if (mod.isDenoFunctionModulePlugin(tsSyncPlugin)) {
+    ta.assertEquals(false, tsSyncPlugin.isAsync);
+  }
 
   const tsConstructedPlugin = pluginByAbbrevName("constructed");
   ta.assert(mod.isDenoModulePlugin(tsConstructedPlugin));
@@ -181,7 +186,7 @@ Deno.test(`File system plugins discovery with commands proxy plugins manager`, a
         const output = new TextDecoder().decode(
           r.rscResult.stdOut,
         );
-        assertEquals(output, expected);
+        ta.assertEquals(output, expected);
       }
     }
   });
