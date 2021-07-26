@@ -29,9 +29,12 @@ export const isFileSystemPluginSource = safety.typeGuard<
   "absPathAndFileName",
 );
 
-export function fileSystemPluginRegistrar<T extends fr.PluginExecutive>(
+export function fileSystemPluginRegistrar<
+  PE extends fr.PluginExecutive,
+  PC extends fr.PluginContext<PE>,
+>(
   src: FileSystemPluginSource,
-  sfro: sfp.ShellFileRegistrarOptions<T>,
+  sfro: sfp.ShellFileRegistrarOptions<PE, PC>,
   tsro: tsExtn.TypeScriptRegistrarOptions,
 ): fr.PluginRegistrar | undefined {
   switch (path.extname(src.absPathAndFileName)) {
@@ -39,7 +42,7 @@ export function fileSystemPluginRegistrar<T extends fr.PluginExecutive>(
       return tsp.typeScriptFileRegistrar(tsro);
 
     default:
-      return sfp.shellFileRegistrar<T>(sfro);
+      return sfp.shellFileRegistrar<PE, PC>(sfro);
   }
 }
 
@@ -53,18 +56,22 @@ export const isDiscoverFileSystemPluginSource = safety.typeGuard<
 >("discoveryPath", "glob");
 
 export interface DiscoverFileSystemPluginsOptions<
-  T extends fr.PluginExecutive,
+  PE extends fr.PluginExecutive,
+  PC extends fr.PluginContext<PE>,
 > {
   readonly discoveryPath: FileSystemPathOnly;
   readonly globs: FileSystemGlobs;
   readonly onValidPlugin: (vpr: fr.ValidPluginRegistration) => void;
   readonly onInvalidPlugin?: (ipr: fr.InvalidPluginRegistration) => void;
-  readonly shellFileRegistryOptions: sfp.ShellFileRegistrarOptions<T>;
+  readonly shellFileRegistryOptions: sfp.ShellFileRegistrarOptions<PE, PC>;
   readonly typeScriptFileRegistryOptions: tsExtn.TypeScriptRegistrarOptions;
 }
 
-export async function discoverFileSystemPlugins<T extends fr.PluginExecutive>(
-  options: DiscoverFileSystemPluginsOptions<T>,
+export async function discoverFileSystemPlugins<
+  PE extends fr.PluginExecutive,
+  PC extends fr.PluginContext<PE>,
+>(
+  options: DiscoverFileSystemPluginsOptions<PE, PC>,
 ): Promise<void> {
   const { discoveryPath, globs, onValidPlugin, onInvalidPlugin } = options;
   for (const glob of globs) {

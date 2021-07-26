@@ -3,15 +3,21 @@ import * as fr from "../framework.ts";
 import * as shExtn from "../shell-exe-extn.ts";
 import * as fs from "./file-sys-plugin.ts";
 
-export interface ShellFileRegistrarOptions<T extends fr.PluginExecutive> {
-  readonly envVarsSupplier?: shExtn.ShellCmdEnvVarsSupplier<T>;
-  readonly shellCmdEnhancer?: shExtn.ShellCmdEnhancer<T>;
-  readonly runShellCmdOpts?: shExtn.PrepareShellCmdRunOptions<T>;
+export interface ShellFileRegistrarOptions<
+  PE extends fr.PluginExecutive,
+  PC extends fr.PluginContext<PE>,
+> {
+  readonly envVarsSupplier?: shExtn.ShellCmdEnvVarsSupplier<PE, PC>;
+  readonly shellCmdEnhancer?: shExtn.ShellCmdEnhancer<PE, PC>;
+  readonly runShellCmdOpts?: shExtn.PrepareShellCmdRunOptions<PE, PC>;
   readonly telemetry: telem.Telemetry;
 }
 
-export function shellFileRegistrarSync<T extends fr.PluginExecutive>(
-  options: ShellFileRegistrarOptions<T>,
+export function shellFileRegistrarSync<
+  PE extends fr.PluginExecutive,
+  PC extends fr.PluginContext<PE>,
+>(
+  options: ShellFileRegistrarOptions<PE, PC>,
 ): fr.PluginRegistrarSync {
   const isExecutable = (path: string): false | string[] => {
     const fi = Deno.statSync(path);
@@ -35,7 +41,7 @@ export function shellFileRegistrarSync<T extends fr.PluginExecutive>(
         return result;
       }
       const graphNode = new cxg.Node<fr.Plugin>(source.graphNodeName);
-      const plugin: shExtn.ShellExePlugin<T> & {
+      const plugin: shExtn.ShellExePlugin<PE, PC> & {
         readonly graphNode: cxg.Node<fr.Plugin>;
       } = {
         source,
@@ -46,14 +52,12 @@ export function shellFileRegistrarSync<T extends fr.PluginExecutive>(
           return graphNode;
         },
         envVars: options.envVarsSupplier,
-        shellCmd: (pc: fr.PluginContext<T>): string[] => {
+        shellCmd: (pc: PC): string[] => {
           return options.shellCmdEnhancer
             ? options.shellCmdEnhancer(pc, isExecutableCmd)
             : isExecutableCmd;
         },
-        execute: async (
-          pc: fr.PluginContext<T>,
-        ): Promise<fr.ActionResult<T>> => {
+        execute: async (pc: PC): Promise<fr.ActionResult<PE, PC>> => {
           const cmd = options.shellCmdEnhancer
             ? options.shellCmdEnhancer(pc, isExecutableCmd)
             : isExecutableCmd;
@@ -67,7 +71,7 @@ export function shellFileRegistrarSync<T extends fr.PluginExecutive>(
             },
             options.runShellCmdOpts ? options.runShellCmdOpts(pc) : undefined,
           );
-          const actionResult: shExtn.ShellExeActionResult<T> = {
+          const actionResult: shExtn.ShellExeActionResult<PE, PC> = {
             pc,
             rscResult,
           };
@@ -90,8 +94,11 @@ export function shellFileRegistrarSync<T extends fr.PluginExecutive>(
   };
 }
 
-export function shellFileRegistrar<T extends fr.PluginExecutive>(
-  options: ShellFileRegistrarOptions<T>,
+export function shellFileRegistrar<
+  PE extends fr.PluginExecutive,
+  PC extends fr.PluginContext<PE>,
+>(
+  options: ShellFileRegistrarOptions<PE, PC>,
 ): fr.PluginRegistrar {
   const regSync = shellFileRegistrarSync(options);
 

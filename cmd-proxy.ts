@@ -24,15 +24,17 @@ export const isCommandDryRunnable = safety.typeGuard<
   DryRunnableProxyableCommand
 >("isDryRun");
 
-export interface CommandProxyPluginContext<T extends fr.PluginExecutive>
-  extends fr.PluginContext<T> {
+export interface CommandProxyPluginContext<PE extends fr.PluginExecutive>
+  extends fr.PluginContext<PE> {
   readonly command: ProxyableCommand;
   readonly arguments?: Record<string, string>;
 }
 
-export function isCommandProxyPluginContext<T extends fr.PluginExecutive>(
+export function isCommandProxyPluginContext<
+  PE extends fr.PluginExecutive,
+>(
   o: unknown,
-): o is CommandProxyPluginContext<T> {
+): o is CommandProxyPluginContext<PE> {
   if (fr.isPluginContext(o)) {
     return "command" in o;
   }
@@ -47,9 +49,9 @@ export function isCommandProxyPluginContext<T extends fr.PluginExecutive>(
    * @param dfmhResult
    */
 export function defaultTypeScriptPluginResultEnhancer<
-  T extends fr.PluginExecutive,
+  PE extends fr.PluginExecutive,
 >(
-  _cppc: CommandProxyPluginContext<T>,
+  _cppc: CommandProxyPluginContext<PE>,
   dfmhResult?: tsExtn.DenoFunctionModuleHandlerResult,
 ): tsExtn.DenoFunctionModuleHandlerResult {
   if (!dfmhResult) return {};
@@ -57,25 +59,28 @@ export function defaultTypeScriptPluginResultEnhancer<
 }
 
 export interface CommandProxyPluginsManagerOptions<
-  T extends fr.PluginExecutive,
+  PE extends fr.PluginExecutive,
+  PC extends fr.PluginContext<PE>,
 > {
-  readonly shellCmdEnvVarsSupplier?: shExtn.ShellCmdEnvVarsSupplier<T>;
+  readonly shellCmdEnvVarsSupplier?: shExtn.ShellCmdEnvVarsSupplier<PE, PC>;
   readonly shellCmdEnvVarsDefaultPrefix?: string;
-  readonly shellCmdEnhancer?: shExtn.ShellCmdEnhancer<T>;
-  readonly shellCmdPrepareRunOpts?: shExtn.PrepareShellCmdRunOptions<T>;
+  readonly shellCmdEnhancer?: shExtn.ShellCmdEnhancer<PE, PC>;
+  readonly shellCmdPrepareRunOpts?: shExtn.PrepareShellCmdRunOptions<PE, PC>;
   readonly typeScriptModuleOptions?: tsExtn.TypeScriptRegistrarOptions;
 }
 
-export class CommandProxyPluginsManager<T extends fr.PluginExecutive>
-  implements fr.PluginsSupplier {
+export class CommandProxyPluginsManager<
+  PE extends fr.PluginExecutive,
+  PC extends CommandProxyPluginContext<PE>,
+> implements fr.PluginsSupplier {
   readonly plugins: fr.Plugin[] = [];
   readonly pluginsGraph = new cxg.CxGraph();
   readonly invalidPlugins: fr.InvalidPluginRegistration[] = [];
 
   constructor(
-    readonly executive: T,
+    readonly executive: PE,
     readonly commands: Record<ProxyableCommandText, ProxyableCommand>,
-    readonly options: CommandProxyPluginsManagerOptions<T>,
+    readonly options: CommandProxyPluginsManagerOptions<PE, PC>,
   ) {
   }
 
@@ -98,7 +103,7 @@ export class CommandProxyPluginsManager<T extends fr.PluginExecutive>
   }
 
   enhanceShellCmd(
-    pc: CommandProxyPluginContext<T>,
+    pc: CommandProxyPluginContext<PE>,
     suggestedCmd: string[],
   ): string[] {
     const cmd = [...suggestedCmd];
@@ -113,7 +118,7 @@ export class CommandProxyPluginsManager<T extends fr.PluginExecutive>
   }
 
   prepareShellCmdEnvVars(
-    pc: CommandProxyPluginContext<T>,
+    pc: CommandProxyPluginContext<PE>,
     envVarsPrefix: string,
   ): Record<string, string> {
     const result: Record<string, string> = {
@@ -138,8 +143,8 @@ export class CommandProxyPluginsManager<T extends fr.PluginExecutive>
     options?: {
       readonly onActivity?: fr.PluginActivityReporter;
     },
-  ): CommandProxyPluginContext<T> {
-    return {
+  ): PC {
+    const pc: PC = {
       onActivity: options?.onActivity ||
         ((a: actv.PluginActivity): actv.PluginActivity => {
           console.log(a.message);
@@ -148,20 +153,21 @@ export class CommandProxyPluginsManager<T extends fr.PluginExecutive>
       container: this.executive,
       plugin,
       command,
-    };
+    } as PC; // TODO: figure out why typecasting is required, was getting error
+    return pc;
   }
 
   async execute(
     command: ProxyableCommand,
     options?: {
       readonly onActivity?: fr.PluginActivityReporter;
-      readonly onUnhandledPlugin?: (cppc: CommandProxyPluginContext<T>) => void;
+      readonly onUnhandledPlugin?: (pc: PC) => void;
     },
-  ): Promise<fr.ActionResult<T>[]> {
-    const results: fr.ActionResult<T>[] = [];
+  ): Promise<fr.ActionResult<PE, PC>[]> {
+    const results: fr.ActionResult<PE, PC>[] = [];
     for (const plugin of this.plugins) {
       const cppc = this.createExecutePluginContext(command, plugin, options);
-      if (fr.isActionPlugin<T>(plugin)) {
+      if (fr.isActionPlugin<PE, PC>(plugin)) {
         results.push(await plugin.execute(cppc));
       } else if (options?.onUnhandledPlugin) {
         options?.onUnhandledPlugin(cppc);

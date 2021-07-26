@@ -28,9 +28,11 @@ export interface TypeScriptRegistrarOptions {
   readonly telemetry: TypeScriptRegistrarTelemetry;
 }
 
-export interface DenoFunctionModulePlugin<T extends fr.PluginExecutive>
-  extends DenoModulePlugin {
-  readonly handler: DenoFunctionModuleHandler<T>;
+export interface DenoFunctionModulePlugin<
+  PE extends fr.PluginExecutive,
+  PC extends fr.PluginContext<PE>,
+> extends DenoModulePlugin {
+  readonly handler: DenoFunctionModuleHandler<PE, PC>;
   readonly isAsync: boolean;
   readonly isGenerator: boolean;
 }
@@ -44,9 +46,12 @@ export function isGeneratorFunction(o: unknown) {
   return (name === "GeneratorFunction" || name === "AsyncGeneratorFunction");
 }
 
-export function isDenoFunctionModulePlugin<T extends fr.PluginExecutive>(
+export function isDenoFunctionModulePlugin<
+  PE extends fr.PluginExecutive,
+  PC extends fr.PluginContext<PE>,
+>(
   o: unknown,
-): o is DenoFunctionModulePlugin<T> {
+): o is DenoFunctionModulePlugin<PE, PC> {
   if (isDenoModulePlugin(o)) {
     return "handler" in o && "isAsync" in o && "isGenerator" in o;
   }
@@ -55,10 +60,11 @@ export function isDenoFunctionModulePlugin<T extends fr.PluginExecutive>(
 
 export type DenoFunctionModuleHandlerResult = unknown;
 
-export interface DenoFunctionModuleHandler<T extends fr.PluginExecutive> {
-  (
-    pc: fr.PluginContext<T>,
-  ):
+export interface DenoFunctionModuleHandler<
+  PE extends fr.PluginExecutive,
+  PC extends fr.PluginContext<PE>,
+> {
+  (pc: PC):
     | Promise<DenoFunctionModuleHandlerResult>
     | DenoFunctionModuleHandlerResult
     | Promise<
@@ -73,15 +79,20 @@ export interface DenoFunctionModuleHandler<T extends fr.PluginExecutive> {
     >;
 }
 
-export interface DenoFunctionModuleActionResult<T extends fr.PluginExecutive>
-  extends fr.ActionResult<T> {
+export interface DenoFunctionModuleActionResult<
+  PE extends fr.PluginExecutive,
+  PC extends fr.PluginContext<PE>,
+> extends fr.ActionResult<PE, PC> {
   readonly dfmhResult: DenoFunctionModuleHandlerResult;
 }
 
-export function isDenoFunctionModuleActionResult<T extends fr.PluginExecutive>(
+export function isDenoFunctionModuleActionResult<
+  PE extends fr.PluginExecutive,
+  PC extends fr.PluginContext<PE>,
+>(
   o: unknown,
-): o is DenoFunctionModuleActionResult<T> {
-  const isDfmaResult = safety.typeGuard<DenoFunctionModuleActionResult<T>>(
+): o is DenoFunctionModuleActionResult<PE, PC> {
+  const isDfmaResult = safety.typeGuard<DenoFunctionModuleActionResult<PE, PC>>(
     "dfmhResult",
   );
   return isDfmaResult(o);
@@ -121,7 +132,8 @@ export async function importCachedModule(
 }
 
 export function registerDenoFunctionModule<
-  T extends fr.PluginExecutive,
+  PE extends fr.PluginExecutive,
+  PC extends fr.PluginContext<PE>,
 >(
   potential: DenoModulePlugin,
 ): fr.ValidPluginRegistration | fr.InvalidPluginRegistration {
@@ -142,21 +154,21 @@ export function registerDenoFunctionModule<
   }
 
   if (typeof moduleDefault === "function") {
-    const handler = moduleDefault as DenoFunctionModuleHandler<T>;
+    const handler = moduleDefault as DenoFunctionModuleHandler<PE, PC>;
     const handlerConstrName = handler.constructor.name;
     const isGenerator = (handlerConstrName === "GeneratorFunction" ||
       handlerConstrName === "AsyncGeneratorFunction");
     const isAsync = handlerConstrName === "AsyncFunction" ||
       handlerConstrName === "AsyncGeneratorFunction";
-    const plugin: DenoFunctionModulePlugin<T> & fr.Action<T> = {
+    const plugin: DenoFunctionModulePlugin<PE, PC> & fr.Action<PE, PC> = {
       ...potential,
       nature: { identity: "deno-module-function" },
       handler,
       isAsync,
       isGenerator,
-      execute: async (pc: fr.PluginContext<T>): Promise<fr.ActionResult<T>> => {
+      execute: async (pc: PC): Promise<fr.ActionResult<PE, PC>> => {
         const dfmhResult = isAsync ? await handler(pc) : handler(pc);
-        const actionResult: DenoFunctionModuleActionResult<T> = {
+        const actionResult: DenoFunctionModuleActionResult<PE, PC> = {
           pc,
           dfmhResult,
         };

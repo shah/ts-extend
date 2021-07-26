@@ -5,19 +5,21 @@ import * as tsExtn from "../typescript-extn.ts";
 import * as fsp from "./file-sys-plugin.ts";
 
 export interface CommandProxyFileSystemPluginsManagerOptions<
-  T extends fr.PluginExecutive,
-> extends cp.CommandProxyPluginsManagerOptions<T> {
+  PE extends fr.PluginExecutive,
+  PC extends fr.PluginContext<PE>,
+> extends cp.CommandProxyPluginsManagerOptions<PE, PC> {
   readonly discoveryPath: string;
   readonly localFsSources: fsp.FileSystemGlobs;
 }
 
 export class CommandProxyFileSystemPluginsManager<
-  T extends fr.PluginExecutive,
-> extends cp.CommandProxyPluginsManager<T> {
+  PE extends fr.PluginExecutive,
+  PC extends cp.CommandProxyPluginContext<PE>,
+> extends cp.CommandProxyPluginsManager<PE, PC> {
   constructor(
-    readonly executive: T,
+    readonly executive: PE,
     readonly commands: Record<cp.ProxyableCommandText, cp.ProxyableCommand>,
-    readonly options: CommandProxyFileSystemPluginsManagerOptions<T>,
+    readonly options: CommandProxyFileSystemPluginsManagerOptions<PE, PC>,
   ) {
     super(executive, commands, options);
   }
@@ -37,8 +39,8 @@ export class CommandProxyFileSystemPluginsManager<
         shellCmdEnhancer: this.options.shellCmdEnhancer
           ? this.options.shellCmdEnhancer
           : (
-            (pc: fr.PluginContext<T>, suggestedCmd: string[]): string[] => {
-              if (cp.isCommandProxyPluginContext(pc)) {
+            (pc: PC, suggestedCmd: string[]): string[] => {
+              if (cp.isCommandProxyPluginContext<PE>(pc)) {
                 return this.enhanceShellCmd(pc, suggestedCmd);
               }
               console.warn(
@@ -55,8 +57,8 @@ export class CommandProxyFileSystemPluginsManager<
         envVarsSupplier: this.options.shellCmdEnvVarsSupplier
           ? this.options.shellCmdEnvVarsSupplier
           : (
-            (pc: fr.PluginContext<T>): Record<string, string> => {
-              if (cp.isCommandProxyPluginContext(pc)) {
+            (pc: PC): Record<string, string> => {
+              if (cp.isCommandProxyPluginContext<PE>(pc)) {
                 return this.prepareShellCmdEnvVars(
                   pc,
                   this.options.shellCmdEnvVarsDefaultPrefix || "CMDPROXY_",
@@ -81,7 +83,7 @@ export class CommandProxyFileSystemPluginsManager<
   }
 
   prepareShellCmdEnvVars(
-    pc: cp.CommandProxyPluginContext<T>,
+    pc: cp.CommandProxyPluginContext<PE>,
     envVarsPrefix: string,
   ): Record<string, string> {
     const envVars = super.prepareShellCmdEnvVars(pc, envVarsPrefix);

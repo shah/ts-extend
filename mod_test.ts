@@ -8,7 +8,8 @@ const testModuleLocalFsPath = path.relative(
 );
 
 const testShellCmdRegistrarOptions: mod.fs.ShellFileRegistrarOptions<
-  TestExecutive
+  TestExecutive,
+  mod.PluginContext<TestExecutive>
 > = {
   shellCmdEnhancer: (
     _pc: mod.PluginContext<TestExecutive>,

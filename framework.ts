@@ -104,34 +104,52 @@ export const isPlugin = safety.typeGuard<Plugin>(
   "registerNode",
 );
 
-export interface ActionResult<T extends PluginExecutive> {
-  readonly pc: PluginContext<T>;
+export interface ActionResult<
+  T extends PluginExecutive,
+  PC extends PluginContext<T>,
+> {
+  readonly pc: PC;
 }
 
-export interface Action<T extends PluginExecutive> {
-  readonly execute: (pc: PluginContext<T>) => Promise<ActionResult<T>>;
+export interface Action<
+  T extends PluginExecutive,
+  PC extends PluginContext<T>,
+> {
+  readonly execute: (pc: PC) => Promise<ActionResult<T, PC>>;
 }
 
-export function isActionPlugin<T extends PluginExecutive>(
+export function isActionPlugin<
+  T extends PluginExecutive,
+  PC extends PluginContext<T>,
+>(
   o: unknown,
-): o is Plugin & Action<T> {
+): o is Plugin & Action<T, PC> {
   if (isPlugin(o)) {
     return "execute" in o;
   }
   return false;
 }
 
-export interface FilterResult<T extends PluginExecutive> {
-  readonly pc: PluginContext<T>;
+export interface FilterResult<
+  T extends PluginExecutive,
+  PC extends PluginContext<T>,
+> {
+  readonly pc: PC;
 }
 
-export interface Filter<T extends PluginExecutive> {
-  readonly filter: (pc: PluginContext<T>) => Promise<FilterResult<T>>;
+export interface Filter<
+  T extends PluginExecutive,
+  PC extends PluginContext<T>,
+> {
+  readonly filter: (pc: PC) => Promise<FilterResult<T, PC>>;
 }
 
-export function isFilterPlugin<T extends PluginExecutive>(
+export function isFilterPlugin<
+  T extends PluginExecutive,
+  PC extends PluginContext<T>,
+>(
   o: unknown,
-): o is Plugin & Filter<T> {
+): o is Plugin & Filter<T, PC> {
   if (isPlugin(o)) {
     return "filter" in o;
   }
