@@ -64,7 +64,7 @@ export class TestCustomPluginsManager
   implements mod.fs.FileSystemPluginsSupplier {
   readonly discoveryPath = path.join(testModuleLocalFsPath, "fs", "test");
   readonly plugins: mod.Plugin[] = [];
-  readonly pluginsGraph = new cxg.CxGraph();
+  readonly pluginsGraph: mod.PluginsGraph = new cxg.CxGraph();
   readonly invalidPlugins: mod.InvalidPluginRegistration[] = [];
   readonly localFsSources: mod.fs.FileSystemGlobs;
   readonly telemetry = new mod.TypicalTypeScriptRegistrarTelemetry();
@@ -94,6 +94,7 @@ export class TestCustomPluginsManager
         importModule: (source) => {
           return mod.importCachedModule(source, this.telemetry);
         },
+        moduleMetaData: mod.moduleMetaData,
         telemetry: this.telemetry,
       },
     });

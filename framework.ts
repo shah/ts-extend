@@ -5,9 +5,15 @@ export type PluginExecutive = unknown;
 
 export type PluginNatureIdentity = string;
 
-export interface PluginNature {
-  readonly identity: PluginNatureIdentity;
+/**
+ * MutableOptionalPluginNature is useful during the initialization process of
+ * plugins but should not be used after initialization.
+ */
+export interface MutableOptionalPluginNature {
+  identity?: PluginNatureIdentity;
 }
+
+export type PluginNature = Readonly<Required<MutableOptionalPluginNature>>;
 
 export const isPluginNature = safety.typeGuard<PluginNature>("identity");
 
@@ -49,9 +55,12 @@ export interface PluginRegistrarSync {
   (src: PluginSource): PluginRegistration;
 }
 
+export type PluginGraphNode = cxg.Node<Plugin>;
+export type PluginsGraph = cxg.CxGraph;
+
 export interface PluginsSupplier {
   readonly plugins: Plugin[];
-  readonly pluginsGraph: cxg.CxGraph;
+  readonly pluginsGraph: PluginsGraph;
 }
 
 export interface PluginActivityReporter {
@@ -78,12 +87,18 @@ export function isPluginContext<T extends PluginExecutive>(
 export type PluginIdentity = string;
 export type PluginGraphNodeIdentity = string;
 
-export interface PluginSource {
-  readonly systemID: PluginIdentity;
-  readonly friendlyName: PluginIdentity;
-  readonly abbreviatedName: PluginIdentity;
-  readonly graphNodeName: PluginGraphNodeIdentity;
+/**
+ * MutableOptionalPluginSource is useful during the initialization process of
+ * plugins but should not be used after initialization.
+ */
+export interface MutableOptionalPluginSource {
+  systemID?: PluginIdentity;
+  friendlyName?: PluginIdentity;
+  abbreviatedName?: PluginIdentity;
+  graphNodeName?: PluginGraphNodeIdentity;
 }
+
+export type PluginSource = Readonly<Required<MutableOptionalPluginSource>>;
 
 export const isPluginSource = safety.typeGuard<PluginSource>(
   "systemID",
@@ -92,10 +107,14 @@ export const isPluginSource = safety.typeGuard<PluginSource>(
   "graphNodeName",
 );
 
-export interface Plugin {
+export interface MutableOptionalPluginsGraphParticipant {
+  registerNode?: (graph: PluginsGraph) => PluginGraphNode;
+}
+
+export interface Plugin
+  extends Readonly<Required<MutableOptionalPluginsGraphParticipant>> {
   readonly nature: PluginNature;
   readonly source: PluginSource;
-  readonly registerNode: (graph: cxg.CxGraph) => cxg.Node<Plugin>;
 }
 
 export const isPlugin = safety.typeGuard<Plugin>(

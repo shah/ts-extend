@@ -77,6 +77,7 @@ export class CommandProxyFileSystemPluginsManager<
         importModule: (source: URL) => {
           return tsExtn.importCachedModule(source, telemetry);
         },
+        moduleMetaData: tsExtn.moduleMetaData,
         telemetry,
       },
     });

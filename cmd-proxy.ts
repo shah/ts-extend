@@ -74,7 +74,7 @@ export class CommandProxyPluginsManager<
   PC extends CommandProxyPluginContext<PE>,
 > implements fr.PluginsSupplier {
   readonly plugins: fr.Plugin[] = [];
-  readonly pluginsGraph = new cxg.CxGraph();
+  readonly pluginsGraph: fr.PluginsGraph = new cxg.CxGraph();
   readonly invalidPlugins: fr.InvalidPluginRegistration[] = [];
 
   constructor(

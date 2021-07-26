@@ -6,9 +6,22 @@ export interface DenoModulePlugin extends fr.Plugin {
   readonly module: unknown;
 }
 
+/**
+ * DenoModuleMetaData represents Plugin information defined as constants in
+ * a Deno module. Plugin details defined in this interface may be overridden
+ * by a Deno module plugin.
+ */
+export interface DenoModuleMetaData
+  extends fr.MutableOptionalPluginsGraphParticipant {
+  nature: fr.MutableOptionalPluginNature;
+  source: fr.MutableOptionalPluginSource;
+  constructGraphNode?: (metaData: DenoModuleMetaData) => fr.PluginGraphNode;
+}
+
 export const isDenoModulePlugin = safety.typeGuard<DenoModulePlugin>(
   "nature",
   "source",
+  "registerNode",
   "module",
 );
 
@@ -25,6 +38,7 @@ export interface TypeScriptRegistrarTelemetry extends telem.Instrumentation {
 export interface TypeScriptRegistrarOptions {
   readonly validateModule: TypeScriptModuleRegistrationSupplier;
   readonly importModule: (src: URL) => Promise<unknown>;
+  readonly moduleMetaData: (module: unknown) => DenoModuleMetaData;
   readonly telemetry: TypeScriptRegistrarTelemetry;
 }
 
@@ -204,4 +218,59 @@ export class TypicalTypeScriptRegistrarTelemetry extends telem.Telemetry
       baggage: { source },
     });
   }
+}
+
+export function moduleMetaData(module: unknown): DenoModuleMetaData {
+  const result: DenoModuleMetaData = {
+    nature: {},
+    source: {},
+  };
+  for (const entry of Object.entries(module as Record<string, unknown>)) {
+    const [key, value] = entry;
+    if (typeof value === "string") {
+      switch (key) {
+        case "systemID":
+          // if module has `export const systemID = "X"` then use that as the graphName
+          result.source.systemID = value;
+          break;
+
+        case "friendlyName":
+          // if module has `export const friendlyName = "X"` then use that as the graphName
+          result.source.friendlyName = value;
+          break;
+
+        case "abbreviatedName":
+          // if module has `export const abbreviatedName = "X"` then use that as the graphName
+          result.source.abbreviatedName = value;
+          break;
+
+        case "graphNodeName":
+          // if module has `export const graphNodeName = "X"` then use that as the graphName
+          result.source.graphNodeName = value;
+          break;
+      }
+
+      continue;
+    }
+
+    if (key === "nature" && fr.isPluginNature(value)) result.nature = value;
+
+    if (typeof value === "function") {
+      switch (key) {
+        case "registerNode":
+          // TODO: enhance type checking because a function could be defined incorrectly at runtime
+          result.registerNode =
+            value as ((graph: fr.PluginsGraph) => fr.PluginGraphNode);
+          break;
+
+        case "constructGraphNode":
+          // TODO: enhance type checking because a function could be defined incorrectly at runtime
+          result.constructGraphNode =
+            value as ((metaData: DenoModuleMetaData) => fr.PluginGraphNode);
+          break;
+      }
+    }
+  }
+
+  return result;
 }
