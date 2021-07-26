@@ -176,7 +176,6 @@ export function registerDenoFunctionModule<
       handlerConstrName === "AsyncGeneratorFunction";
     const plugin: DenoFunctionModulePlugin<PE, PC> & fr.Action<PE, PC> = {
       ...potential,
-      nature: { identity: "deno-module-function" },
       handler,
       isAsync,
       isGenerator,

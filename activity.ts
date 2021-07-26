@@ -1,3 +1,5 @@
+import { safety } from "./deps.ts";
+
 export type PluginActivityMessage = string;
 
 export interface PluginActivity {
@@ -13,3 +15,15 @@ export function activity(
     ...defaults,
   };
 }
+
+export interface PluginActivityReporter {
+  (a: PluginActivity, options?: { dryRun?: boolean }): void;
+}
+
+export interface PluginActivityReporterSupplier {
+  readonly onActivity: PluginActivityReporter;
+}
+
+export const isPluginActivityReporterSupplier = safety.typeGuard<
+  PluginActivityReporterSupplier
+>("onActivity");

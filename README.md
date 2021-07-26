@@ -34,6 +34,11 @@ functionality without needing to touch your core, you should use this
 
 ## TODO
 
+- Move Plugin focused interfaces to contract.ts so that each plugin only needs
+  to pull in that specific TS file into its own module
+- Create PluginLifecycle events like discover, activate, discard (on error),
+  etc. which can be implemented by PluginExecutive or can be provided in Plugins
+  meta data
 - Add serviceHealth (ServiceHealthSupplier) for indicating healthy or unhealthy
   plugins
 - Create plugin dependency management using

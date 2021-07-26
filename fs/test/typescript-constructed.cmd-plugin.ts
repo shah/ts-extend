@@ -2,20 +2,22 @@ import { cxg } from "../../deps.ts";
 import * as mod from "../../mod.ts";
 import * as modT from "../../mod_test.ts";
 
+type PluginContext = mod.PluginContext<modT.TestExecutive>;
+
 const graphNodeName = "pre-constructed system ID";
 export const constructed:
   & mod.DenoModulePlugin
-  & mod.Action<modT.TestExecutive>
+  & mod.Action<modT.TestExecutive, PluginContext>
   & {
     executeCountState: number;
-    readonly graphNode: cxg.Node<mod.Plugin>;
+    readonly graphNode: mod.PluginGraphNode;
   } = {
     module: this,
     executeCountState: 0,
     // deno-lint-ignore require-await
     execute: async (
-      pc: mod.PluginContext<modT.TestExecutive>,
-    ): Promise<mod.ActionResult<modT.TestExecutive>> => {
+      pc: PluginContext,
+    ): Promise<mod.ActionResult<modT.TestExecutive, PluginContext>> => {
       constructed.executeCountState++;
       return { pc };
     },

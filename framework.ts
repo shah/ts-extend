@@ -1,5 +1,4 @@
 import { cxg, safety } from "./deps.ts";
-import * as actv from "./activity.ts";
 
 export type PluginExecutive = unknown;
 
@@ -63,14 +62,9 @@ export interface PluginsSupplier {
   readonly pluginsGraph: PluginsGraph;
 }
 
-export interface PluginActivityReporter {
-  (a: actv.PluginActivity, options?: { dryRun?: boolean }): void;
-}
-
-export interface PluginContext<T extends PluginExecutive> {
-  readonly container: T;
+export interface PluginContext<PE extends PluginExecutive> {
+  readonly container: PE;
   readonly plugin: Plugin;
-  readonly onActivity?: PluginActivityReporter;
 }
 
 export function isPluginContext<T extends PluginExecutive>(
@@ -79,7 +73,6 @@ export function isPluginContext<T extends PluginExecutive>(
   const isPC = safety.typeGuard<PluginContext<T>>(
     "container",
     "plugin",
-    "onActivity",
   );
   return isPC(o);
 }

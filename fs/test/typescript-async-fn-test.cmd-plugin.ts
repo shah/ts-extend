@@ -5,13 +5,11 @@ export interface TestAsyncPluginFunctionResult {
   readonly pc: mod.PluginContext<modT.TestExecutive>;
 }
 
+// publish the function so that the extension framework finds it
 // deno-lint-ignore require-await
-export async function testAsyncPluginFunction(
+export default async function (
   pc: mod.PluginContext<modT.TestExecutive>,
 ): Promise<TestAsyncPluginFunctionResult> {
   // just return the whole context, which shows we can do whatever we want
   return { pc };
 }
-
-// publish the function so that the extension framework finds it
-export default testAsyncPluginFunction;

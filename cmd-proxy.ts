@@ -141,26 +141,32 @@ export class CommandProxyPluginsManager<
     command: ProxyableCommand,
     plugin: fr.Plugin,
     options?: {
-      readonly onActivity?: fr.PluginActivityReporter;
+      readonly onActivity?: actv.PluginActivityReporter;
     },
   ): PC {
     const pc: PC = {
-      onActivity: options?.onActivity ||
-        ((a: actv.PluginActivity): actv.PluginActivity => {
-          console.log(a.message);
-          return a;
-        }),
       container: this.executive,
       plugin,
       command,
     } as PC; // TODO: figure out why typecasting is required, was getting error
-    return pc;
+    return options?.onActivity
+      ? {
+        ...pc,
+        onActivity: options?.onActivity,
+      }
+      : {
+        ...pc,
+        onActivity: (a: actv.PluginActivity): actv.PluginActivity => {
+          console.log(a.message);
+          return a;
+        },
+      };
   }
 
   async execute(
     command: ProxyableCommand,
     options?: {
-      readonly onActivity?: fr.PluginActivityReporter;
+      readonly onActivity?: actv.PluginActivityReporter;
       readonly onUnhandledPlugin?: (pc: PC) => void;
     },
   ): Promise<fr.ActionResult<PE, PC>[]> {
