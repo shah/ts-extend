@@ -1,8 +1,35 @@
 import { cxg, safety } from "./deps.ts";
-import * as actv from "./activity.ts";
 import * as fr from "./framework.ts";
 import * as shExtn from "./shell-exe-extn.ts";
 import * as tsExtn from "./typescript-extn.ts";
+
+export type CommandProxyPluginActivityMessage = string;
+
+export interface CommandProxyPluginActivity {
+  readonly message: CommandProxyPluginActivityMessage;
+}
+
+export function commandProxyActivity(
+  message: string,
+  defaults?: Partial<Omit<CommandProxyPluginActivity, "message">>,
+): CommandProxyPluginActivity {
+  return {
+    message,
+    ...defaults,
+  };
+}
+
+export interface CommandProxyPluginActivityReporter {
+  (a: CommandProxyPluginActivity, options?: { dryRun?: boolean }): void;
+}
+
+export interface CommandProxyPluginActivityReporterSupplier {
+  readonly onActivity: CommandProxyPluginActivityReporter;
+}
+
+export const isCommandProxyPluginActivityReporterSupplier = safety.typeGuard<
+  CommandProxyPluginActivityReporterSupplier
+>("onActivity");
 
 /**
  * ProxyableCommandText is the name of a "hook" that can be extended.
@@ -141,7 +168,7 @@ export class CommandProxyPluginsManager<
     command: ProxyableCommand,
     plugin: fr.Plugin,
     options?: {
-      readonly onActivity?: actv.PluginActivityReporter;
+      readonly onActivity?: CommandProxyPluginActivityReporter;
     },
   ): PC {
     const pc: PC = {
@@ -156,7 +183,9 @@ export class CommandProxyPluginsManager<
       }
       : {
         ...pc,
-        onActivity: (a: actv.PluginActivity): actv.PluginActivity => {
+        onActivity: (
+          a: CommandProxyPluginActivity,
+        ): CommandProxyPluginActivity => {
           console.log(a.message);
           return a;
         },
@@ -166,7 +195,7 @@ export class CommandProxyPluginsManager<
   async execute(
     command: ProxyableCommand,
     options?: {
-      readonly onActivity?: actv.PluginActivityReporter;
+      readonly onActivity?: CommandProxyPluginActivityReporter;
       readonly onUnhandledPlugin?: (pc: PC) => void;
     },
   ): Promise<fr.ActionResult<PE, PC>[]> {

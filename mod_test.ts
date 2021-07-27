@@ -53,7 +53,7 @@ export class TestContext implements mod.PluginContext<TestExecutive> {
   }
 
   onActivity(
-    a: mod.PluginActivity,
+    a: mod.CommandProxyPluginActivity,
     options?: { readonly dryRun?: boolean },
   ): void {
     console.log(a.message, "dryRun:", options?.dryRun);
