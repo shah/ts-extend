@@ -1,8 +1,8 @@
 import { path, shell } from "../deps.ts";
-import * as cp from "../cmd-proxy.ts";
+import * as cp from "./cmd-proxy.ts";
 import * as fr from "../framework.ts";
 import * as tsExtn from "../typescript-extn.ts";
-import * as fsp from "./file-sys-plugin.ts";
+import * as fsp from "../fs/file-sys-plugin.ts";
 
 export interface CommandProxyFileSystemPluginsManagerOptions<
   PE extends fr.PluginExecutive,

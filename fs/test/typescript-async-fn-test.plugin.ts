@@ -1,5 +1,5 @@
 import * as mod from "../../mod.ts";
-import * as modT from "../../mod_test.ts";
+import * as modT from "../mod_test.ts";
 
 // deno-lint-ignore require-await
 export async function testAsyncPluginFunction(

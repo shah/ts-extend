@@ -1,13 +1,14 @@
-import { cxg, govnSvcTelemetry as telem, path, shell } from "./deps.ts";
-import { testingAsserts as ta } from "./deps-test.ts";
-import * as mod from "./mod.ts";
+import { cxg, govnSvcTelemetry as telem, path, shell } from "../deps.ts";
+import { testingAsserts as ta } from "../deps-test.ts";
+import * as mod from "../mod.ts";
+import * as modFS from "./mod.ts";
 
 const testModuleLocalFsPath = path.relative(
   Deno.cwd(),
   path.dirname(import.meta.url).substr("file://".length),
 );
 
-const testShellCmdRegistrarOptions: mod.fs.ShellFileRegistrarOptions<
+const testShellCmdRegistrarOptions: modFS.ShellFileRegistrarOptions<
   TestExecutive,
   mod.PluginContext<TestExecutive>
 > = {
@@ -26,7 +27,7 @@ const testShellCmdRegistrarOptions: mod.fs.ShellFileRegistrarOptions<
   envVarsSupplier: (
     pc: mod.PluginContext<TestExecutive>,
   ): Record<string, string> => {
-    if (!mod.fs.isDiscoverFileSystemPluginSource(pc.plugin.source)) {
+    if (!modFS.isDiscoverFileSystemPluginSource(pc.plugin.source)) {
       throw new Error(
         "pc.plugin.source must be DiscoverFileSystemPluginSource",
       );
@@ -51,22 +52,15 @@ export class TestExecutive {
 export class TestContext implements mod.PluginContext<TestExecutive> {
   constructor(readonly container: TestExecutive, readonly plugin: mod.Plugin) {
   }
-
-  onActivity(
-    a: mod.CommandProxyPluginActivity,
-    options?: { readonly dryRun?: boolean },
-  ): void {
-    console.log(a.message, "dryRun:", options?.dryRun);
-  }
 }
 
 export class TestCustomPluginsManager
-  implements mod.fs.FileSystemPluginsSupplier {
-  readonly discoveryPath = path.join(testModuleLocalFsPath, "fs", "test");
+  implements modFS.FileSystemPluginsSupplier {
+  readonly discoveryPath = path.join(testModuleLocalFsPath, "test");
   readonly plugins: mod.Plugin[] = [];
   readonly pluginsGraph: mod.PluginsGraph = new cxg.CxGraph();
   readonly invalidPlugins: mod.InvalidPluginRegistration[] = [];
-  readonly localFsSources: mod.fs.FileSystemGlobs;
+  readonly localFsSources: modFS.FileSystemGlobs;
   readonly telemetry = new mod.TypicalTypeScriptRegistrarTelemetry();
 
   constructor(readonly executive: TestExecutive) {
@@ -78,7 +72,7 @@ export class TestCustomPluginsManager
   }
 
   async init(): Promise<void> {
-    await mod.fs.discoverFileSystemPlugins(this.executive, this, {
+    await modFS.discoverFileSystemPlugins(this.executive, this, {
       discoveryPath: this.discoveryPath,
       globs: this.localFsSources,
       onValidPlugin: (vpr) => {
@@ -162,108 +156,4 @@ Deno.test(`File system plugins discovery with custom plugins manager`, async () 
   ta.assert(mod.isDenoModulePlugin(tsConstructedPlugin));
   ta.assert("activateCountState" in tsConstructedPlugin);
   ta.assert("executeCountState" in tsConstructedPlugin);
-});
-
-Deno.test(`File system plugins discovery with commands proxy plugins manager`, async () => {
-  const describeCmd: mod.ProxyableCommand = { proxyCmd: "describe" };
-  const pluginsMgr = new mod.fs.CommandProxyFileSystemPluginsManager(
-    new TestExecutive(),
-    {
-      [describeCmd.proxyCmd]: describeCmd,
-    },
-    {
-      discoveryPath: path.join(testModuleLocalFsPath, "fs", "test"),
-      localFsSources: ["**/*.cmd-plugin.*"],
-      shellCmdPrepareRunOpts: (): shell.RunShellCommandOptions => {
-        // usually we want output to go to the console but we're overriding it
-        // in the test case so that we don't show anything but we can test it
-        // with asserts
-        return {};
-      },
-    },
-  );
-  await pluginsMgr.init();
-  const pluginByAbbrevName = (name: string): mod.Plugin | undefined => {
-    return pluginsMgr.plugins.find((p) => p.source.abbreviatedName == name);
-  };
-
-  ta.assertEquals(6, pluginsMgr.plugins.length);
-
-  // TODO: register depenedencies and test the graph
-  // console.dir(pluginsMgr.pluginsGraph);
-
-  const shellExePlugin = pluginByAbbrevName(
-    "shell-exe-test.cmd-plugin.sh",
-  );
-  ta.assert(mod.isShellExePlugin(shellExePlugin));
-
-  const tsAsyncPlugin = pluginByAbbrevName(
-    "typescript-async-fn-test.cmd-plugin.ts",
-  );
-  ta.assert(mod.isDenoFunctionModulePlugin(tsAsyncPlugin));
-  if (mod.isDenoFunctionModulePlugin(tsAsyncPlugin)) {
-    ta.assert(tsAsyncPlugin.isAsync);
-    ta.assertEquals(false, tsAsyncPlugin.isGenerator);
-  }
-
-  const tsAsyncGenPlugin = pluginByAbbrevName(
-    "typescript-async-gfn-test.cmd-plugin.ts",
-  );
-  ta.assert(mod.isDenoFunctionModulePlugin(tsAsyncGenPlugin));
-  if (mod.isDenoFunctionModulePlugin(tsAsyncGenPlugin)) {
-    ta.assert(tsAsyncGenPlugin.isAsync);
-    ta.assert(tsAsyncGenPlugin.isGenerator);
-  }
-
-  const tsSyncPlugin = pluginByAbbrevName(
-    "typescript-sync-fn-test.cmd-plugin.ts",
-  );
-  ta.assert(mod.isDenoFunctionModulePlugin(tsSyncPlugin));
-  if (mod.isDenoFunctionModulePlugin(tsSyncPlugin)) {
-    ta.assertEquals(false, tsSyncPlugin.isAsync);
-    ta.assertEquals(false, tsSyncPlugin.isGenerator);
-  }
-
-  const tsSyncGenPlugin = pluginByAbbrevName(
-    "typescript-sync-gfn-test.cmd-plugin.ts",
-  );
-  ta.assert(mod.isDenoFunctionModulePlugin(tsSyncGenPlugin));
-  if (mod.isDenoFunctionModulePlugin(tsSyncGenPlugin)) {
-    ta.assertEquals(false, tsSyncGenPlugin.isAsync);
-    ta.assert(tsSyncGenPlugin.isGenerator);
-  }
-
-  const tsConstructedPlugin = pluginByAbbrevName("constructed");
-  ta.assert(mod.isDenoModulePlugin(tsConstructedPlugin));
-
-  let unhandledCount = 0;
-  const results = await pluginsMgr.execute(describeCmd, {
-    onUnhandledPlugin: (cppc) => {
-      unhandledCount++;
-      console.error("UNABLE TO EXECUTE");
-      console.dir(cppc);
-    },
-  });
-  ta.assertEquals(0, unhandledCount);
-  ta.assertEquals(6, results.length);
-
-  ta.assert("activateCountState" in tsConstructedPlugin);
-  ta.assert("executeCountState" in tsConstructedPlugin);
-  // deno-lint-ignore no-explicit-any
-  ta.assert((tsConstructedPlugin as any).activateCountState == 0);
-  // deno-lint-ignore no-explicit-any
-  ta.assert((tsConstructedPlugin as any).executeCountState > 0);
-
-  results.forEach((r) => {
-    if (mod.isShellExeActionResult(r)) {
-      if (shell.isExecutionResult(r.rscResult)) {
-        const expected =
-          "Describe what will be generated in 'test.auto.md' in '.' by shell-exe-test.cmd-plugin.sh\n";
-        const output = new TextDecoder().decode(
-          r.rscResult.stdOut,
-        );
-        ta.assertEquals(output, expected);
-      }
-    }
-  });
 });

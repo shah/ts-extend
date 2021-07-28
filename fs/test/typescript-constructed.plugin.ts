@@ -1,6 +1,6 @@
 import { cxg } from "../../deps.ts";
 import * as mod from "../../mod.ts";
-import * as modT from "../../mod_test.ts";
+import * as modT from "../mod_test.ts";
 
 type PluginContext = mod.PluginContext<modT.TestExecutive>;
 

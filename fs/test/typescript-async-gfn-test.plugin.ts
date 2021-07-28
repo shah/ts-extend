@@ -1,5 +1,5 @@
 import * as mod from "../../mod.ts";
-import * as modT from "../../mod_test.ts";
+import * as modT from "../mod_test.ts";
 
 export async function* testAsyncGeneratorPluginFunction(
   pc: mod.PluginContext<modT.TestExecutive>,

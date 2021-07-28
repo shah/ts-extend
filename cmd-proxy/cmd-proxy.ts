@@ -1,7 +1,7 @@
-import { cxg, safety } from "./deps.ts";
-import * as fr from "./framework.ts";
-import * as shExtn from "./shell-exe-extn.ts";
-import * as tsExtn from "./typescript-extn.ts";
+import { cxg, safety } from "../deps.ts";
+import * as fr from "../framework.ts";
+import * as shExtn from "../shell-exe-extn.ts";
+import * as tsExtn from "../typescript-extn.ts";
 
 export type CommandProxyPluginActivityMessage = string;
 
