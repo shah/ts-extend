@@ -10,6 +10,11 @@ export interface ShellFileRegistrarOptions<
   readonly envVarsSupplier?: shExtn.ShellCmdEnvVarsSupplier<PE, PC>;
   readonly shellCmdEnhancer?: shExtn.ShellCmdEnhancer<PE, PC>;
   readonly runShellCmdOpts?: shExtn.PrepareShellCmdRunOptions<PE, PC>;
+  // TODO: create activePlugin similar to TypeScript
+  // readonly activatePlugin: (
+  //   dmac: DMAC,
+  //   plugin: DenoModulePlugin,
+  // ) => Promise<DMAR | false>;
   readonly telemetry: telem.Telemetry;
 }
 

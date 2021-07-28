@@ -6,11 +6,13 @@ import * as fs from "./file-sys-plugin.ts";
 export function typeScriptFileRegistrar<
   PE extends fr.PluginExecutive,
   PEC extends fr.PluginExecutiveContext<PE>,
-  PS extends fr.PluginsSupplier,
+  PS extends fr.PluginsSupplier<PE>,
+  DMAC extends tsExtn.DenoModuleActivateContext<PE, PEC, PS>,
+  DMAR extends tsExtn.DenoModuleActivateResult<PE, PEC, PS, DMAC>,
 >(
   executive: PE,
   supplier: PS,
-  tsro: tsExtn.TypeScriptRegistrarOptions<PE, PEC, PS>,
+  tsro: tsExtn.TypeScriptRegistrarOptions<PE, PEC, PS, DMAC, DMAR>,
 ): fr.PluginRegistrar {
   return async (
     originalSource: fr.PluginSource,

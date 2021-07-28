@@ -1,6 +1,12 @@
 import { cxg, safety } from "./deps.ts";
 
-export type PluginExecutive = unknown;
+export interface PluginExecutive {
+  readonly isPluginExecutive: true;
+}
+
+export const isPluginExecutive = safety.typeGuard<PluginExecutive>(
+  "isPluginExecutive",
+);
 
 export type PluginNatureIdentity = string;
 
@@ -57,9 +63,21 @@ export interface PluginRegistrarSync {
 export type PluginGraphNode = cxg.Node<Plugin>;
 export type PluginsGraph = cxg.CxGraph;
 
-export interface PluginsSupplier {
+export interface PluginsSupplier<PE extends PluginExecutive> {
   readonly plugins: Plugin[];
   readonly pluginsGraph: PluginsGraph;
+  readonly activate: (executive: PE) => Promise<void>;
+}
+
+export function isPluginsSupplier<PE extends PluginExecutive>(
+  o: unknown,
+): o is PluginsSupplier<PE> {
+  const isPS = safety.typeGuard<PluginsSupplier<PE>>(
+    "plugins",
+    "pluginsGraph",
+    "activate",
+  );
+  return isPS(o);
 }
 
 export interface PluginExecutiveContext<PE extends PluginExecutive> {
@@ -123,7 +141,7 @@ export const isPlugin = safety.typeGuard<Plugin>(
 export interface ActivateContext<
   PE extends PluginExecutive,
   PEC extends PluginExecutiveContext<PE>,
-  PS extends PluginsSupplier,
+  PS extends PluginsSupplier<PE>,
 > {
   readonly context: PEC;
   readonly supplier: PS;
@@ -133,7 +151,7 @@ export interface ActivateContext<
 export interface ActivateResult<
   PE extends PluginExecutive,
   PEC extends PluginExecutiveContext<PE>,
-  PS extends PluginsSupplier,
+  PS extends PluginsSupplier<PE>,
   AC extends ActivateContext<PE, PEC, PS>,
 > {
   readonly context: AC;
@@ -143,7 +161,7 @@ export interface ActivateResult<
 export interface Activatable<
   PE extends PluginExecutive,
   PEC extends PluginExecutiveContext<PE>,
-  PS extends PluginsSupplier,
+  PS extends PluginsSupplier<PE>,
   AC extends ActivateContext<PE, PEC, PS>,
   AR extends ActivateResult<PE, PEC, PS, AC>,
 > {
@@ -153,7 +171,7 @@ export interface Activatable<
 export interface ActivatableSync<
   PE extends PluginExecutive,
   PEC extends PluginExecutiveContext<PE>,
-  PS extends PluginsSupplier,
+  PS extends PluginsSupplier<PE>,
   AC extends ActivateContext<PE, PEC, PS>,
   AR extends ActivateResult<PE, PEC, PS, AC>,
 > {
@@ -163,7 +181,7 @@ export interface ActivatableSync<
 export function isActivatablePlugin<
   PE extends PluginExecutive,
   PEC extends PluginExecutiveContext<PE>,
-  PS extends PluginsSupplier,
+  PS extends PluginsSupplier<PE>,
   AC extends ActivateContext<PE, PEC, PS>,
   AR extends ActivateResult<PE, PEC, PS, AC>,
 >(
@@ -178,7 +196,7 @@ export function isActivatablePlugin<
 export function isActivatableSyncPlugin<
   PE extends PluginExecutive,
   PEC extends PluginExecutiveContext<PE>,
-  PS extends PluginsSupplier,
+  PS extends PluginsSupplier<PE>,
   AC extends ActivateContext<PE, PEC, PS>,
   AR extends ActivateResult<PE, PEC, PS, AC>,
 >(

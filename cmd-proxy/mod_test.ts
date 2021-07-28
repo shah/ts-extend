@@ -2,6 +2,7 @@ import { path, shell } from "../deps.ts";
 import { testingAsserts as ta } from "../deps-test.ts";
 import * as extn from "../mod.ts";
 import * as cp from "./mod.ts";
+import * as testGovn from "./test/governance.ts";
 
 const testModuleLocalFsPath = path.relative(
   Deno.cwd(),
@@ -9,6 +10,7 @@ const testModuleLocalFsPath = path.relative(
 );
 
 export class TestExecutive {
+  readonly isPluginExecutive = true;
 }
 
 export class TestContext implements extn.PluginContext<TestExecutive> {
@@ -41,7 +43,7 @@ Deno.test(`File system plugins discovery with commands proxy plugins manager`, a
       },
     },
   );
-  await pluginsMgr.init();
+  await pluginsMgr.activate();
   const pluginByAbbrevName = (name: string): extn.Plugin | undefined => {
     return pluginsMgr.plugins.find((p) => p.source.abbreviatedName == name);
   };
@@ -106,12 +108,9 @@ Deno.test(`File system plugins discovery with commands proxy plugins manager`, a
   ta.assertEquals(0, unhandledCount);
   ta.assertEquals(6, results.length);
 
-  ta.assert("activateCountState" in tsConstructedPlugin);
-  ta.assert("executeCountState" in tsConstructedPlugin);
-  // deno-lint-ignore no-explicit-any
-  ta.assert((tsConstructedPlugin as any).activateCountState == 0);
-  // deno-lint-ignore no-explicit-any
-  ta.assert((tsConstructedPlugin as any).executeCountState > 0);
+  ta.assert(testGovn.isTestState(tsConstructedPlugin));
+  ta.assert(tsConstructedPlugin.activateCountState == 1);
+  ta.assert(tsConstructedPlugin.executeCountState > 0);
 
   results.forEach((r) => {
     if (extn.isShellExeActionResult(r)) {

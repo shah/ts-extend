@@ -88,7 +88,9 @@ export function defaultTypeScriptPluginResultEnhancer<
 export interface CommandProxyPluginsManagerOptions<
   PE extends fr.PluginExecutive,
   PC extends fr.PluginContext<PE>,
-  PS extends fr.PluginsSupplier,
+  PS extends fr.PluginsSupplier<PE>,
+  DMAC extends tsExtn.DenoModuleActivateContext<PE, PC, PS>,
+  DMAR extends tsExtn.DenoModuleActivateResult<PE, PC, PS, DMAC>,
 > {
   readonly shellCmdEnvVarsSupplier?: shExtn.ShellCmdEnvVarsSupplier<PE, PC>;
   readonly shellCmdEnvVarsDefaultPrefix?: string;
@@ -97,35 +99,77 @@ export interface CommandProxyPluginsManagerOptions<
   readonly typeScriptModuleOptions?: tsExtn.TypeScriptRegistrarOptions<
     PE,
     PC,
-    PS
+    PS,
+    DMAC,
+    DMAR
   >;
 }
 
 export class CommandProxyPluginsManager<
   PE extends fr.PluginExecutive,
-  PC extends CommandProxyPluginContext<PE>,
-  PS extends fr.PluginsSupplier,
-  AR extends fr.ActionResult<PE, PC>,
-> implements fr.PluginsSupplier {
+  CPPC extends CommandProxyPluginContext<PE>,
+  PS extends fr.PluginsSupplier<PE>,
+  DMAC extends tsExtn.DenoModuleActivateContext<PE, CPPC, PS>,
+  DMAR extends tsExtn.DenoModuleActivateResult<PE, CPPC, PS, DMAC>,
+  AR extends fr.ActionResult<PE, CPPC>,
+> implements fr.PluginsSupplier<PE> {
   readonly plugins: fr.Plugin[] = [];
+  readonly validInactivePlugins: fr.ValidPluginRegistration[] = [];
   readonly pluginsGraph: fr.PluginsGraph = new cxg.CxGraph();
   readonly invalidPlugins: fr.InvalidPluginRegistration[] = [];
 
   constructor(
     readonly executive: PE,
     readonly commands: Record<ProxyableCommandText, ProxyableCommand>,
-    readonly options: CommandProxyPluginsManagerOptions<PE, PC, PS>,
+    readonly options: CommandProxyPluginsManagerOptions<
+      PE,
+      CPPC,
+      PS,
+      DMAC,
+      DMAR
+    >,
   ) {
   }
 
-  async init(): Promise<void> {
+  protected async init(): Promise<void> {
+  }
+
+  async activate(): Promise<void> {
+    await this.init();
+    for (const vpr of this.validInactivePlugins) {
+      const dmac: DMAC = {
+        context: { container: this.executive },
+        supplier: this,
+        vpr,
+      } as unknown as DMAC; // TODO figure out why this requires cast :-(
+      if (
+        tsExtn.isDenoModuleActivatablePlugin<PE, CPPC, PS, DMAC, DMAR>(
+          dmac.vpr.plugin,
+        )
+      ) {
+        const activatedPR = await dmac.vpr.plugin.activate(dmac);
+        if (fr.isValidPluginRegistration(activatedPR.registration)) {
+          this.plugins.push(dmac.vpr.plugin);
+          dmac.vpr.plugin.registerNode(this.pluginsGraph);
+        } else {
+          if (fr.isInvalidPluginRegistration(activatedPR)) {
+            this.handleInvalidPlugin(activatedPR);
+          } else {
+            console.error("UNKOWN ERROR 0x001221");
+          }
+        }
+      } else {
+        // TODO: not a typescript module, no special activation !?
+        this.plugins.push(dmac.vpr.plugin);
+        dmac.vpr.plugin.registerNode(this.pluginsGraph);
+      }
+    }
   }
 
   registerValidPlugin(vpr: fr.ValidPluginRegistration): fr.Plugin {
     // TODO: make sure not to register duplicates; if it's a duplicate,
     // do not add, just return the existing one
-    this.plugins.push(vpr.plugin);
-    vpr.plugin.registerNode(this.pluginsGraph);
+    this.validInactivePlugins.push(vpr);
     return vpr.plugin;
   }
 
@@ -177,12 +221,12 @@ export class CommandProxyPluginsManager<
     options?: {
       readonly onActivity?: CommandProxyPluginActivityReporter;
     },
-  ): PC {
-    const pc: PC = {
+  ): CPPC {
+    const pc: CPPC = {
       container: this.executive,
       plugin,
       command,
-    } as PC; // TODO: figure out why typecasting is required, was getting error
+    } as CPPC; // TODO: figure out why typecasting is required, was getting error
     return options?.onActivity
       ? {
         ...pc,
@@ -203,16 +247,16 @@ export class CommandProxyPluginsManager<
     command: ProxyableCommand,
     options?: {
       readonly onActivity?: CommandProxyPluginActivityReporter;
-      readonly onUnhandledPlugin?: (pc: PC) => void;
+      readonly onUnhandledPlugin?: (pc: CPPC) => void;
     },
   ): Promise<AR[]> {
     const results: AR[] = [];
     for (const plugin of this.plugins) {
       const cppc = this.createExecutePluginContext(command, plugin, options);
-      if (fr.isActionPlugin<PE, PC, AR>(plugin)) {
+      if (fr.isActionPlugin<PE, CPPC, AR>(plugin)) {
         results.push(await plugin.execute(cppc));
       } else if (
-        fr.isActionSyncPlugin<PE, PC, AR>(plugin)
+        fr.isActionSyncPlugin<PE, CPPC, AR>(plugin)
       ) {
         results.push(plugin.executeSync(cppc));
       } else if (options?.onUnhandledPlugin) {

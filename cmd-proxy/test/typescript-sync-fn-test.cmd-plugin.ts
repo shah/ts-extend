@@ -1,15 +1,8 @@
-import * as mod from "../../mod.ts";
-import * as modT from "../mod_test.ts";
+import * as govn from "./governance.ts";
 
-export interface TestSyncPluginFunctionResult {
-  readonly context: mod.PluginContext<modT.TestExecutive>;
-}
-
-export function testSyncPluginFunction(
-  context: mod.PluginContext<modT.TestExecutive>,
-): TestSyncPluginFunctionResult {
+// use "default" to publish the function so that the extension framework finds it
+export default function testSyncPluginFunction(
+  context: govn.TestPluginContext,
+): govn.TestPluginActionResult {
   return { context };
 }
-
-// publish the function so that the extension framework finds it
-export default testSyncPluginFunction;

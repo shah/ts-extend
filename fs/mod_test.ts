@@ -1,5 +1,6 @@
 import { cxg, govnSvcTelemetry as telem, path, shell } from "../deps.ts";
 import { testingAsserts as ta } from "../deps-test.ts";
+import * as testGovn from "./test/governance.ts";
 import * as mod from "../mod.ts";
 import * as modFS from "./mod.ts";
 
@@ -47,6 +48,7 @@ const testShellCmdRegistrarOptions: modFS.ShellFileRegistrarOptions<
 };
 
 export class TestExecutive {
+  readonly isPluginExecutive = true;
 }
 
 export class TestContext implements mod.PluginContext<TestExecutive> {
@@ -55,10 +57,11 @@ export class TestContext implements mod.PluginContext<TestExecutive> {
 }
 
 export class TestCustomPluginsManager
-  implements modFS.FileSystemPluginsSupplier {
+  implements modFS.FileSystemPluginsSupplier<TestExecutive> {
   readonly discoveryPath = path.join(testModuleLocalFsPath, "test");
   readonly plugins: mod.Plugin[] = [];
   readonly pluginsGraph: mod.PluginsGraph = new cxg.CxGraph();
+  readonly validInactivePlugins: mod.ValidPluginRegistration[] = [];
   readonly invalidPlugins: mod.InvalidPluginRegistration[] = [];
   readonly localFsSources: modFS.FileSystemGlobs;
   readonly telemetry = new mod.TypicalTypeScriptRegistrarTelemetry();
@@ -71,13 +74,12 @@ export class TestCustomPluginsManager
     return this.plugins.find((p) => p.source.abbreviatedName == name);
   }
 
-  async init(): Promise<void> {
+  protected async init(): Promise<void> {
     await modFS.discoverFileSystemPlugins(this.executive, this, {
       discoveryPath: this.discoveryPath,
       globs: this.localFsSources,
       onValidPlugin: (vpr) => {
-        this.plugins.push(vpr.plugin);
-        vpr.plugin.registerNode(this.pluginsGraph);
+        this.validInactivePlugins.push(vpr);
       },
       onInvalidPlugin: (ipr) => {
         this.invalidPlugins.push(ipr);
@@ -93,12 +95,44 @@ export class TestCustomPluginsManager
       },
     });
   }
+
+  async activate(): Promise<void> {
+    await this.init();
+    for (const vpr of this.validInactivePlugins) {
+      const dmac: mod.DenoModuleActivateContext<
+        TestExecutive,
+        mod.PluginExecutiveContext<TestExecutive>,
+        TestCustomPluginsManager
+      > = {
+        context: { container: this.executive },
+        supplier: this,
+        vpr,
+      };
+      if (mod.isDenoModuleActivatablePlugin(dmac.vpr.plugin)) {
+        const activatedPR = await dmac.vpr.plugin.activate(dmac);
+        if (mod.isValidPluginRegistration(activatedPR.registration)) {
+          this.plugins.push(dmac.vpr.plugin);
+          dmac.vpr.plugin.registerNode(this.pluginsGraph);
+        } else {
+          if (mod.isInvalidPluginRegistration(activatedPR)) {
+            this.invalidPlugins.push(activatedPR);
+          } else {
+            console.error("UNKOWN ERROR 0x001221");
+          }
+        }
+      } else {
+        // TODO: not a typescript module, no special activation !?
+        this.plugins.push(dmac.vpr.plugin);
+        dmac.vpr.plugin.registerNode(this.pluginsGraph);
+      }
+    }
+  }
 }
 
 Deno.test(`File system plugins discovery with custom plugins manager`, async () => {
   const executive = new TestExecutive();
   const pluginsMgr = new TestCustomPluginsManager(executive);
-  await pluginsMgr.init();
+  await pluginsMgr.activate();
   ta.assertEquals(6, pluginsMgr.plugins.length);
 
   // TODO: update as more telemetry is added, right now only TypeScript modules are instrumented
@@ -154,6 +188,6 @@ Deno.test(`File system plugins discovery with custom plugins manager`, async () 
 
   const tsConstructedPlugin = pluginsMgr.pluginByAbbrevName("constructed");
   ta.assert(mod.isDenoModulePlugin(tsConstructedPlugin));
-  ta.assert("activateCountState" in tsConstructedPlugin);
-  ta.assert("executeCountState" in tsConstructedPlugin);
+  ta.assert(testGovn.isTestState(tsConstructedPlugin));
+  ta.assert(tsConstructedPlugin.activateCountState == 1);
 });

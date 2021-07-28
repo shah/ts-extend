@@ -1,11 +1,10 @@
-import * as mod from "../../mod.ts";
-import * as modT from "../mod_test.ts";
+import * as govn from "./governance.ts";
 
 export function* testGenSyncPluginFunction(
-  pc: mod.PluginContext<modT.TestExecutive>,
+  context: govn.TestPluginContext,
 ) {
   console.log("Hello World from TypeScript testSyncPluginFunction");
-  yield { pc };
+  yield { context };
   return undefined;
 }
 

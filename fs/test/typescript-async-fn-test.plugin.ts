@@ -1,11 +1,11 @@
-import * as mod from "../../mod.ts";
-import * as modT from "../mod_test.ts";
+import * as govn from "./governance.ts";
 
 // deno-lint-ignore require-await
 export async function testAsyncPluginFunction(
-  _pc: mod.PluginContext<modT.TestExecutive>,
-): Promise<void> {
+  context: govn.TestPluginContext,
+): Promise<govn.TestPluginActionResult> {
   console.log("Hello World from TypeScript testSyncPluginFunction");
+  return { context };
 }
 
 // publish the function so that the extension framework finds it

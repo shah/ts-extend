@@ -6,27 +6,37 @@ import * as fsp from "../fs/file-sys-plugin.ts";
 
 export interface CommandProxyFileSystemPluginsManagerOptions<
   PE extends fr.PluginExecutive,
-  PC extends cp.CommandProxyPluginContext<PE>,
-  PS extends cp.CommandProxyPluginsManager<
-    PE,
-    PC,
-    CommandProxyFileSystemPluginsManager<PE, PC, AR>,
-    AR
-  >,
-  AR extends fr.ActionResult<PE, PC>,
-> extends cp.CommandProxyPluginsManagerOptions<PE, PC, PS> {
+  CPPC extends cp.CommandProxyPluginContext<PE>,
+  PS extends fr.PluginsSupplier<PE>,
+  DMAC extends tsExtn.DenoModuleActivateContext<PE, CPPC, PS>,
+  DMAR extends tsExtn.DenoModuleActivateResult<PE, CPPC, PS, DMAC>,
+  AR extends fr.ActionResult<PE, CPPC>,
+> extends cp.CommandProxyPluginsManagerOptions<PE, CPPC, PS, DMAC, DMAR> {
   readonly discoveryPath: string;
   readonly localFsSources: fsp.FileSystemGlobs;
 }
 
 export class CommandProxyFileSystemPluginsManager<
   PE extends fr.PluginExecutive,
-  PC extends cp.CommandProxyPluginContext<PE>,
-  AR extends fr.ActionResult<PE, PC>,
+  CPPC extends cp.CommandProxyPluginContext<PE>,
+  DMAC extends tsExtn.DenoModuleActivateContext<
+    PE,
+    CPPC,
+    CommandProxyFileSystemPluginsManager<PE, CPPC, DMAC, DMAR, AR>
+  >,
+  DMAR extends tsExtn.DenoModuleActivateResult<
+    PE,
+    CPPC,
+    CommandProxyFileSystemPluginsManager<PE, CPPC, DMAC, DMAR, AR>,
+    DMAC
+  >,
+  AR extends fr.ActionResult<PE, CPPC>,
 > extends cp.CommandProxyPluginsManager<
   PE,
-  PC,
-  CommandProxyFileSystemPluginsManager<PE, PC, AR>,
+  CPPC,
+  CommandProxyFileSystemPluginsManager<PE, CPPC, DMAC, DMAR, AR>,
+  DMAC,
+  DMAR,
   AR
 > {
   constructor(
@@ -34,15 +44,17 @@ export class CommandProxyFileSystemPluginsManager<
     readonly commands: Record<cp.ProxyableCommandText, cp.ProxyableCommand>,
     readonly options: CommandProxyFileSystemPluginsManagerOptions<
       PE,
-      PC,
-      CommandProxyFileSystemPluginsManager<PE, PC, AR>,
+      CPPC,
+      CommandProxyFileSystemPluginsManager<PE, CPPC, DMAC, DMAR, AR>,
+      DMAC,
+      DMAR,
       AR
     >,
   ) {
     super(executive, commands, options);
   }
 
-  async init(): Promise<void> {
+  protected async init(): Promise<void> {
     const telemetry = new tsExtn.TypicalTypeScriptRegistrarTelemetry();
     await fsp.discoverFileSystemPlugins(this.executive, this, {
       discoveryPath: this.options.discoveryPath,
@@ -57,7 +69,7 @@ export class CommandProxyFileSystemPluginsManager<
         shellCmdEnhancer: this.options.shellCmdEnhancer
           ? this.options.shellCmdEnhancer
           : (
-            (pc: PC, suggestedCmd: string[]): string[] => {
+            (pc: CPPC, suggestedCmd: string[]): string[] => {
               if (cp.isCommandProxyPluginContext<PE>(pc)) {
                 return this.enhanceShellCmd(pc, suggestedCmd);
               }
@@ -75,7 +87,7 @@ export class CommandProxyFileSystemPluginsManager<
         envVarsSupplier: this.options.shellCmdEnvVarsSupplier
           ? this.options.shellCmdEnvVarsSupplier
           : (
-            (pc: PC): Record<string, string> => {
+            (pc: CPPC): Record<string, string> => {
               if (cp.isCommandProxyPluginContext<PE>(pc)) {
                 return this.prepareShellCmdEnvVars(
                   pc,

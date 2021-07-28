@@ -13,19 +13,19 @@ export const isDenoModulePlugin = safety.typeGuard<DenoModulePlugin>(
   "module",
 );
 
+// deno-lint-ignore no-empty-interface
 export interface DenoModuleActivateContext<
   PE extends fr.PluginExecutive,
   PEC extends fr.PluginExecutiveContext<PE>,
-  PS extends fr.PluginsSupplier,
+  PS extends fr.PluginsSupplier<PE>,
 > extends fr.ActivateContext<PE, PEC, PS> {
-  readonly metaData: DenoModuleMetaData<PE, PEC, PS>;
 }
 
 // deno-lint-ignore no-empty-interface
 export interface DenoModuleActivateResult<
   PE extends fr.PluginExecutive,
   PEC extends fr.PluginExecutiveContext<PE>,
-  PS extends fr.PluginsSupplier,
+  PS extends fr.PluginsSupplier<PE>,
   DMAC extends DenoModuleActivateContext<PE, PEC, PS>,
 > extends fr.ActivateResult<PE, PEC, PS, DMAC> {
 }
@@ -34,7 +34,7 @@ export interface DenoModuleActivateResult<
 export interface DenoModuleActivatable<
   PE extends fr.PluginExecutive,
   PEC extends fr.PluginExecutiveContext<PE>,
-  PS extends fr.PluginsSupplier,
+  PS extends fr.PluginsSupplier<PE>,
   DMAC extends DenoModuleActivateContext<PE, PEC, PS>,
   DMAR extends DenoModuleActivateResult<PE, PEC, PS, DMAC>,
 > extends fr.Activatable<PE, PEC, PS, DMAC, DMAR> {
@@ -44,7 +44,7 @@ export interface DenoModuleActivatable<
 export interface DenoModuleActivatableSync<
   PE extends fr.PluginExecutive,
   PEC extends fr.PluginExecutiveContext<PE>,
-  PS extends fr.PluginsSupplier,
+  PS extends fr.PluginsSupplier<PE>,
   DMAC extends DenoModuleActivateContext<PE, PEC, PS>,
   DMAR extends DenoModuleActivateResult<PE, PEC, PS, DMAC>,
 > extends fr.ActivatableSync<PE, PEC, PS, DMAC, DMAR> {
@@ -53,7 +53,7 @@ export interface DenoModuleActivatableSync<
 export function isDenoModuleActivatablePlugin<
   PE extends fr.PluginExecutive,
   PEC extends fr.PluginExecutiveContext<PE>,
-  PS extends fr.PluginsSupplier,
+  PS extends fr.PluginsSupplier<PE>,
   DMAC extends DenoModuleActivateContext<PE, PEC, PS>,
   DMAR extends DenoModuleActivateResult<PE, PEC, PS, DMAC>,
 >(
@@ -68,7 +68,7 @@ export function isDenoModuleActivatablePlugin<
 export function isDenoModuleActivatableSyncPlugin<
   PE extends fr.PluginExecutive,
   PEC extends fr.PluginExecutiveContext<PE>,
-  PS extends fr.PluginsSupplier,
+  PS extends fr.PluginsSupplier<PE>,
   DMAC extends DenoModuleActivateContext<PE, PEC, PS>,
   DMAR extends DenoModuleActivateResult<PE, PEC, PS, DMAC>,
 >(
@@ -88,7 +88,7 @@ export function isDenoModuleActivatableSyncPlugin<
 export interface DenoModuleMetaData<
   PE extends fr.PluginExecutive,
   PEC extends fr.PluginExecutiveContext<PE>,
-  PS extends fr.PluginsSupplier,
+  PS extends fr.PluginsSupplier<PE>,
 > extends fr.MutableOptionalPluginsGraphParticipant {
   nature: fr.MutableOptionalPluginNature;
   source: fr.MutableOptionalPluginSource;
@@ -120,7 +120,7 @@ export interface DenoModuleMetaData<
 export interface TypeScriptModuleRegistrationSupplier<
   PE extends fr.PluginExecutive,
   PEC extends fr.PluginExecutiveContext<PE>,
-  PS extends fr.PluginsSupplier,
+  PS extends fr.PluginsSupplier<PE>,
 > {
   (
     executive: PE,
@@ -137,7 +137,9 @@ export interface TypeScriptRegistrarTelemetry extends telem.Instrumentation {
 export interface TypeScriptRegistrarOptions<
   PE extends fr.PluginExecutive,
   PEC extends fr.PluginExecutiveContext<PE>,
-  PS extends fr.PluginsSupplier,
+  PS extends fr.PluginsSupplier<PE>,
+  DMAC extends DenoModuleActivateContext<PE, PEC, PS>,
+  DMAR extends DenoModuleActivateResult<PE, PEC, PS, DMAC>,
 > {
   readonly validateModule: TypeScriptModuleRegistrationSupplier<PE, PEC, PS>;
   readonly importModule: (src: URL) => Promise<unknown>;
@@ -148,10 +150,12 @@ export interface TypeScriptRegistrarOptions<
 export interface DenoFunctionModulePlugin<
   PE extends fr.PluginExecutive,
   PC extends fr.PluginContext<PE>,
+  PS extends fr.PluginsSupplier<PE>,
 > extends DenoModulePlugin {
   readonly handler: DenoFunctionModuleHandler<PE, PC>;
   readonly isAsync: boolean;
   readonly isGenerator: boolean;
+  readonly metaData: DenoModuleMetaData<PE, PC, PS>;
 }
 
 export function isGeneratorFunction(o: unknown) {
@@ -166,9 +170,10 @@ export function isGeneratorFunction(o: unknown) {
 export function isDenoFunctionModulePlugin<
   PE extends fr.PluginExecutive,
   PC extends fr.PluginContext<PE>,
+  PS extends fr.PluginsSupplier<PE>,
 >(
   o: unknown,
-): o is DenoFunctionModulePlugin<PE, PC> {
+): o is DenoFunctionModulePlugin<PE, PC, PS> {
   if (isDenoModulePlugin(o)) {
     return "handler" in o && "isAsync" in o && "isGenerator" in o;
   }
@@ -248,13 +253,14 @@ export async function importCachedModule(
   return mce.module;
 }
 
+// deno-lint-ignore require-await
 export async function registerDenoFunctionModule<
   PE extends fr.PluginExecutive,
   PC extends fr.PluginContext<PE>,
-  PS extends fr.PluginsSupplier,
+  PS extends fr.PluginsSupplier<PE>,
 >(
-  executive: PE,
-  supplier: PS,
+  _executive: PE,
+  _supplier: PS,
   potential: DenoModulePlugin,
   metaData: DenoModuleMetaData<PE, PC, PS>,
 ): Promise<fr.ValidPluginRegistration | fr.InvalidPluginRegistration> {
@@ -285,7 +291,7 @@ export async function registerDenoFunctionModule<
     const isAsync = handlerConstrName === "AsyncFunction" ||
       handlerConstrName === "AsyncGeneratorFunction";
     const plugin:
-      & DenoFunctionModulePlugin<PE, PC>
+      & DenoFunctionModulePlugin<PE, PC, PS>
       & fr.Action<PE, PC, fr.ActionResult<PE, PC>> = {
         ...potential,
         handler,
@@ -301,55 +307,12 @@ export async function registerDenoFunctionModule<
           };
           return actionResult;
         },
+        metaData,
       };
     const result: fr.ValidPluginRegistration = {
       source: potential.source,
       plugin,
     };
-    if (
-      isDenoModuleActivatablePlugin<
-        PE,
-        PC,
-        PS,
-        DenoModuleActivateContext<PE, PC, PS>,
-        DenoModuleActivateResult<
-          PE,
-          PC,
-          PS,
-          DenoModuleActivateContext<PE, PC, PS>
-        >
-      >(plugin)
-    ) {
-      const ar = await plugin.activate({
-        context: { container: executive } as PC,
-        metaData,
-        supplier,
-        vpr: result,
-      });
-      return ar.registration;
-    }
-    if (
-      isDenoModuleActivatableSyncPlugin<
-        PE,
-        PC,
-        PS,
-        DenoModuleActivateContext<PE, PC, PS>,
-        DenoModuleActivateResult<
-          PE,
-          PC,
-          PS,
-          DenoModuleActivateContext<PE, PC, PS>
-        >
-      >(plugin)
-    ) {
-      const ar = plugin.activateSync({
-        context: { container: executive } as PC,
-        metaData,
-        supplier,
-        vpr: result,
-      });
-      return ar.registration;
-    }
     return result;
   }
 
@@ -380,7 +343,7 @@ export class TypicalTypeScriptRegistrarTelemetry extends telem.Telemetry
 export function moduleMetaData<
   PE extends fr.PluginExecutive,
   PEC extends fr.PluginExecutiveContext<PE>,
-  PS extends fr.PluginsSupplier,
+  PS extends fr.PluginsSupplier<PE>,
 >(module: unknown): DenoModuleMetaData<PE, PEC, PS> {
   const result: DenoModuleMetaData<PE, PEC, PS> = {
     nature: {},

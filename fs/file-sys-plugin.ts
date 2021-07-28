@@ -9,15 +9,19 @@ export type FileSystemPathOnly = string;
 export type FileSystemGlob = string;
 export type FileSystemGlobs = FileSystemGlob[];
 
-export interface FileSystemPluginsSupplier extends fr.PluginsSupplier {
+export interface FileSystemPluginsSupplier<PE extends fr.PluginExecutive>
+  extends fr.PluginsSupplier<PE> {
   readonly localFsSources: FileSystemGlobs;
 }
 
-export const isLocalFsPluginManager = safety.typeGuard<
-  FileSystemPluginsSupplier
->(
-  "localFsSources",
-);
+export function isFileSystemPluginsSupplier<PE extends fr.PluginExecutive>(
+  o: unknown,
+): o is FileSystemPluginsSupplier<PE> {
+  const isFSPS = safety.typeGuard<FileSystemPluginsSupplier<PE>>(
+    "localFsSources",
+  );
+  return fr.isPluginsSupplier(o) && isFSPS(o);
+}
 
 export interface FileSystemPluginSource extends fr.PluginSource {
   readonly absPathAndFileName: string;
@@ -32,13 +36,15 @@ export const isFileSystemPluginSource = safety.typeGuard<
 export function fileSystemPluginRegistrar<
   PE extends fr.PluginExecutive,
   PC extends fr.PluginContext<PE>,
-  PS extends fr.PluginsSupplier,
+  PS extends fr.PluginsSupplier<PE>,
+  DMAC extends tsExtn.DenoModuleActivateContext<PE, PC, PS>,
+  DMAR extends tsExtn.DenoModuleActivateResult<PE, PC, PS, DMAC>,
 >(
   executive: PE,
   supplier: PS,
   src: FileSystemPluginSource,
   sfro: sfp.ShellFileRegistrarOptions<PE, PC>,
-  tsro: tsExtn.TypeScriptRegistrarOptions<PE, PC, PS>,
+  tsro: tsExtn.TypeScriptRegistrarOptions<PE, PC, PS, DMAC, DMAR>,
 ): fr.PluginRegistrar | undefined {
   switch (path.extname(src.absPathAndFileName)) {
     case ".ts":
@@ -61,7 +67,9 @@ export const isDiscoverFileSystemPluginSource = safety.typeGuard<
 export interface DiscoverFileSystemPluginsOptions<
   PE extends fr.PluginExecutive,
   PC extends fr.PluginContext<PE>,
-  PS extends fr.PluginsSupplier,
+  PS extends fr.PluginsSupplier<PE>,
+  DMAC extends tsExtn.DenoModuleActivateContext<PE, PC, PS>,
+  DMAR extends tsExtn.DenoModuleActivateResult<PE, PC, PS, DMAC>,
 > {
   readonly discoveryPath: FileSystemPathOnly;
   readonly globs: FileSystemGlobs;
@@ -71,18 +79,22 @@ export interface DiscoverFileSystemPluginsOptions<
   readonly typeScriptFileRegistryOptions: tsExtn.TypeScriptRegistrarOptions<
     PE,
     PC,
-    PS
+    PS,
+    DMAC,
+    DMAR
   >;
 }
 
 export async function discoverFileSystemPlugins<
   PE extends fr.PluginExecutive,
   PC extends fr.PluginContext<PE>,
-  PS extends fr.PluginsSupplier,
+  PS extends fr.PluginsSupplier<PE>,
+  DMAC extends tsExtn.DenoModuleActivateContext<PE, PC, PS>,
+  DMAR extends tsExtn.DenoModuleActivateResult<PE, PC, PS, DMAC>,
 >(
   executive: PE,
   supplier: PS,
-  options: DiscoverFileSystemPluginsOptions<PE, PC, PS>,
+  options: DiscoverFileSystemPluginsOptions<PE, PC, PS, DMAC, DMAR>,
 ): Promise<void> {
   const { discoveryPath, globs, onValidPlugin, onInvalidPlugin } = options;
   for (const glob of globs) {
