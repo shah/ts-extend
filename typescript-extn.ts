@@ -141,6 +141,8 @@ export interface TypeScriptRegistrarOptions<
   DMAC extends DenoModuleActivateContext<PE, PEC, PS>,
   DMAR extends DenoModuleActivateResult<PE, PEC, PS, DMAC>,
 > {
+  readonly executive: PE;
+  readonly supplier: PS;
   readonly validateModule: TypeScriptModuleRegistrationSupplier<PE, PEC, PS>;
   readonly importModule: (src: URL) => Promise<unknown>;
   readonly moduleMetaData: (module: unknown) => DenoModuleMetaData<PE, PEC, PS>;

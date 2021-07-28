@@ -75,7 +75,7 @@ export class TestCustomPluginsManager
   }
 
   protected async init(): Promise<void> {
-    await modFS.discoverFileSystemPlugins(this.executive, this, {
+    await modFS.discoverFileSystemPlugins({
       discoveryPath: this.discoveryPath,
       globs: this.localFsSources,
       onValidPlugin: (vpr) => {
@@ -86,6 +86,8 @@ export class TestCustomPluginsManager
       },
       shellFileRegistryOptions: testShellCmdRegistrarOptions,
       typeScriptFileRegistryOptions: {
+        executive: this.executive,
+        supplier: this,
         validateModule: mod.registerDenoFunctionModule,
         importModule: (source) => {
           return mod.importCachedModule(source, this.telemetry);

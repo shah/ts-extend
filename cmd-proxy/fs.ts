@@ -56,7 +56,7 @@ export class CommandProxyFileSystemPluginsManager<
 
   protected async init(): Promise<void> {
     const telemetry = new tsExtn.TypicalTypeScriptRegistrarTelemetry();
-    await fsp.discoverFileSystemPlugins(this.executive, this, {
+    await fsp.discoverFileSystemPlugins({
       discoveryPath: this.options.discoveryPath,
       globs: this.options.localFsSources,
       onValidPlugin: (vpr) => {
@@ -103,6 +103,8 @@ export class CommandProxyFileSystemPluginsManager<
         telemetry,
       },
       typeScriptFileRegistryOptions: this.options.typeScriptModuleOptions || {
+        executive: this.executive,
+        supplier: this,
         validateModule: tsExtn.registerDenoFunctionModule,
         importModule: (source: URL) => {
           return tsExtn.importCachedModule(source, telemetry);

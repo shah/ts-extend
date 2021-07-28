@@ -40,15 +40,13 @@ export function fileSystemPluginRegistrar<
   DMAC extends tsExtn.DenoModuleActivateContext<PE, PC, PS>,
   DMAR extends tsExtn.DenoModuleActivateResult<PE, PC, PS, DMAC>,
 >(
-  executive: PE,
-  supplier: PS,
   src: FileSystemPluginSource,
   sfro: sfp.ShellFileRegistrarOptions<PE, PC>,
   tsro: tsExtn.TypeScriptRegistrarOptions<PE, PC, PS, DMAC, DMAR>,
 ): fr.PluginRegistrar | undefined {
   switch (path.extname(src.absPathAndFileName)) {
     case ".ts":
-      return tsp.typeScriptFileRegistrar(executive, supplier, tsro);
+      return tsp.typeScriptFileRegistrar(tsro);
 
     default:
       return sfp.shellFileRegistrar<PE, PC>(sfro);
@@ -92,8 +90,6 @@ export async function discoverFileSystemPlugins<
   DMAC extends tsExtn.DenoModuleActivateContext<PE, PC, PS>,
   DMAR extends tsExtn.DenoModuleActivateResult<PE, PC, PS, DMAC>,
 >(
-  executive: PE,
-  supplier: PS,
   options: DiscoverFileSystemPluginsOptions<PE, PC, PS, DMAC, DMAR>,
 ): Promise<void> {
   const { discoveryPath, globs, onValidPlugin, onInvalidPlugin } = options;
@@ -111,8 +107,6 @@ export async function discoverFileSystemPlugins<
         };
 
         const register = fileSystemPluginRegistrar(
-          executive,
-          supplier,
           dfspSrc,
           options.shellFileRegistryOptions,
           options.typeScriptFileRegistryOptions,

@@ -10,8 +10,6 @@ export function typeScriptFileRegistrar<
   DMAC extends tsExtn.DenoModuleActivateContext<PE, PEC, PS>,
   DMAR extends tsExtn.DenoModuleActivateResult<PE, PEC, PS, DMAC>,
 >(
-  executive: PE,
-  supplier: PS,
   tsro: tsExtn.TypeScriptRegistrarOptions<PE, PEC, PS, DMAC, DMAR>,
 ): fr.PluginRegistrar {
   return async (
@@ -47,8 +45,8 @@ export function typeScriptFileRegistrar<
             nature: { identity: "deno-module", ...metaData.nature },
           };
           return await tsro.validateModule(
-            executive,
-            supplier,
+            tsro.executive,
+            tsro.supplier,
             potential,
             metaData,
           );
