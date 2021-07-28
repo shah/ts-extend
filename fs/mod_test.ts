@@ -121,7 +121,7 @@ export class TestCustomPluginsManager
           }
         }
       } else {
-        // TODO: not a typescript module, no special activation !?
+        // not a typescript module or no activation hook requested, no special activation
         this.plugins.push(dmac.vpr.plugin);
         dmac.vpr.plugin.registerNode(this.pluginsGraph);
       }
