@@ -99,6 +99,7 @@ export interface CommandProxyPluginsManagerOptions<
 export class CommandProxyPluginsManager<
   PE extends fr.PluginExecutive,
   PC extends CommandProxyPluginContext<PE>,
+  AR extends fr.ActionResult<PE, PC>,
 > implements fr.PluginsSupplier {
   readonly plugins: fr.Plugin[] = [];
   readonly pluginsGraph: fr.PluginsGraph = new cxg.CxGraph();
@@ -198,12 +199,16 @@ export class CommandProxyPluginsManager<
       readonly onActivity?: CommandProxyPluginActivityReporter;
       readonly onUnhandledPlugin?: (pc: PC) => void;
     },
-  ): Promise<fr.ActionResult<PE, PC>[]> {
-    const results: fr.ActionResult<PE, PC>[] = [];
+  ): Promise<AR[]> {
+    const results: AR[] = [];
     for (const plugin of this.plugins) {
       const cppc = this.createExecutePluginContext(command, plugin, options);
-      if (fr.isActionPlugin<PE, PC, fr.ActionResult<PE, PC>>(plugin)) {
+      if (fr.isActionPlugin<PE, PC, AR>(plugin)) {
         results.push(await plugin.execute(cppc));
+      } else if (
+        fr.isActionSyncPlugin<PE, PC, AR>(plugin)
+      ) {
+        results.push(plugin.executeSync(cppc));
       } else if (options?.onUnhandledPlugin) {
         options?.onUnhandledPlugin(cppc);
       }

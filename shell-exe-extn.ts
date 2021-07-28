@@ -25,7 +25,8 @@ export interface PrepareShellCmdRunOptions<
 export interface ShellExePlugin<
   PE extends fr.PluginExecutive,
   PC extends fr.PluginContext<PE>,
-> extends fr.Plugin, fr.Action<PE, PC, fr.ActionResult<PE, PC>> {
+  AR extends fr.ActionResult<PE, PC>,
+> extends fr.Plugin, fr.Action<PE, PC, AR> {
   readonly shellCmd: (pc: PC) => string[];
   readonly envVars?: (pc: PC) => Record<string, string>;
 }
@@ -33,11 +34,12 @@ export interface ShellExePlugin<
 export function isShellExePlugin<
   PE extends fr.PluginExecutive,
   PC extends fr.PluginContext<PE>,
+  AR extends fr.ActionResult<PE, PC>,
 >(
   o: unknown,
-): o is ShellExePlugin<PE, PC> {
+): o is ShellExePlugin<PE, PC, AR> {
   if (fr.isPlugin(o)) {
-    const isShellExPlugin = safety.typeGuard<ShellExePlugin<PE, PC>>(
+    const isShellExPlugin = safety.typeGuard<ShellExePlugin<PE, PC, AR>>(
       "shellCmd",
       "envVars",
     );

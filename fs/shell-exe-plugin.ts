@@ -16,6 +16,7 @@ export interface ShellFileRegistrarOptions<
 export function shellFileRegistrarSync<
   PE extends fr.PluginExecutive,
   PC extends fr.PluginContext<PE>,
+  SEAR extends shExtn.ShellExeActionResult<PE, PC>,
 >(
   options: ShellFileRegistrarOptions<PE, PC>,
 ): fr.PluginRegistrarSync {
@@ -41,7 +42,7 @@ export function shellFileRegistrarSync<
         return result;
       }
       const graphNode = new cxg.Node<fr.Plugin>(source.graphNodeName);
-      const plugin: shExtn.ShellExePlugin<PE, PC> & {
+      const plugin: shExtn.ShellExePlugin<PE, PC, SEAR> & {
         readonly graphNode: cxg.Node<fr.Plugin>;
       } = {
         source,
@@ -73,10 +74,10 @@ export function shellFileRegistrarSync<
               ? options.runShellCmdOpts(context)
               : undefined,
           );
-          const actionResult: shExtn.ShellExeActionResult<PE, PC> = {
+          const actionResult: SEAR = {
             context,
             rscResult,
-          };
+          } as SEAR; // TODO: this shouldn't be necessary but was getting TS error :-(
           return actionResult;
         },
       };

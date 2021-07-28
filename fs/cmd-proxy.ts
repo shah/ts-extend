@@ -15,7 +15,8 @@ export interface CommandProxyFileSystemPluginsManagerOptions<
 export class CommandProxyFileSystemPluginsManager<
   PE extends fr.PluginExecutive,
   PC extends cp.CommandProxyPluginContext<PE>,
-> extends cp.CommandProxyPluginsManager<PE, PC> {
+  AR extends fr.ActionResult<PE, PC>,
+> extends cp.CommandProxyPluginsManager<PE, PC, AR> {
   constructor(
     readonly executive: PE,
     readonly commands: Record<cp.ProxyableCommandText, cp.ProxyableCommand>,

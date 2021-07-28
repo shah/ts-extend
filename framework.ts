@@ -175,6 +175,14 @@ export interface Action<
   readonly execute: (pc: PC) => Promise<AR>;
 }
 
+export interface ActionSync<
+  PE extends PluginExecutive,
+  PC extends PluginContext<PE>,
+  AR extends ActionResult<PE, PC>,
+> {
+  readonly executeSync: (pc: PC) => AR;
+}
+
 export function isActionPlugin<
   PE extends PluginExecutive,
   PC extends PluginContext<PE>,
@@ -184,6 +192,19 @@ export function isActionPlugin<
 ): o is Plugin & Action<PE, PC, AR> {
   if (isPlugin(o)) {
     return "execute" in o;
+  }
+  return false;
+}
+
+export function isActionSyncPlugin<
+  PE extends PluginExecutive,
+  PC extends PluginContext<PE>,
+  AR extends ActionResult<PE, PC>,
+>(
+  o: unknown,
+): o is Plugin & ActionSync<PE, PC, AR> {
+  if (isPlugin(o)) {
+    return "executeSync" in o;
   }
   return false;
 }
