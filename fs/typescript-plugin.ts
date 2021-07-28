@@ -6,9 +6,11 @@ import * as fs from "./file-sys-plugin.ts";
 export function typeScriptFileRegistrar<
   PE extends fr.PluginExecutive,
   PEC extends fr.PluginExecutiveContext<PE>,
+  PS extends fr.PluginsSupplier,
 >(
   executive: PE,
-  tsro: tsExtn.TypeScriptRegistrarOptions<PE, PEC>,
+  supplier: PS,
+  tsro: tsExtn.TypeScriptRegistrarOptions<PE, PEC, PS>,
 ): fr.PluginRegistrar {
   return async (
     originalSource: fr.PluginSource,
@@ -42,7 +44,12 @@ export function typeScriptFileRegistrar<
             }),
             nature: { identity: "deno-module", ...metaData.nature },
           };
-          return await tsro.validateModule(executive, potential, metaData);
+          return await tsro.validateModule(
+            executive,
+            supplier,
+            potential,
+            metaData,
+          );
         } else {
           const result: fr.InvalidPluginRegistration = {
             source: originalSource,

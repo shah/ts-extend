@@ -78,7 +78,7 @@ export class TestCustomPluginsManager
   }
 
   async init(): Promise<void> {
-    await mod.fs.discoverFileSystemPlugins(this.executive, {
+    await mod.fs.discoverFileSystemPlugins(this.executive, this, {
       discoveryPath: this.discoveryPath,
       globs: this.localFsSources,
       onValidPlugin: (vpr) => {

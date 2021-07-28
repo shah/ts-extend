@@ -123,15 +123,18 @@ export const isPlugin = safety.typeGuard<Plugin>(
 export interface ActivateContext<
   PE extends PluginExecutive,
   PEC extends PluginExecutiveContext<PE>,
+  PS extends PluginsSupplier,
 > {
   readonly context: PEC;
+  readonly supplier: PS;
   readonly vpr: ValidPluginRegistration;
 }
 
 export interface ActivateResult<
   PE extends PluginExecutive,
   PEC extends PluginExecutiveContext<PE>,
-  AC extends ActivateContext<PE, PEC>,
+  PS extends PluginsSupplier,
+  AC extends ActivateContext<PE, PEC, PS>,
 > {
   readonly context: AC;
   readonly registration: ValidPluginRegistration | InvalidPluginRegistration;
@@ -140,22 +143,49 @@ export interface ActivateResult<
 export interface Activatable<
   PE extends PluginExecutive,
   PEC extends PluginExecutiveContext<PE>,
-  AC extends ActivateContext<PE, PEC>,
-  AR extends ActivateResult<PE, PEC, AC>,
+  PS extends PluginsSupplier,
+  AC extends ActivateContext<PE, PEC, PS>,
+  AR extends ActivateResult<PE, PEC, PS, AC>,
 > {
   readonly activate: (ac: AC) => Promise<AR>;
+}
+
+export interface ActivatableSync<
+  PE extends PluginExecutive,
+  PEC extends PluginExecutiveContext<PE>,
+  PS extends PluginsSupplier,
+  AC extends ActivateContext<PE, PEC, PS>,
+  AR extends ActivateResult<PE, PEC, PS, AC>,
+> {
+  readonly activateSync: (ac: AC) => AR;
 }
 
 export function isActivatablePlugin<
   PE extends PluginExecutive,
   PEC extends PluginExecutiveContext<PE>,
-  AC extends ActivateContext<PE, PEC>,
-  AR extends ActivateResult<PE, PEC, AC>,
+  PS extends PluginsSupplier,
+  AC extends ActivateContext<PE, PEC, PS>,
+  AR extends ActivateResult<PE, PEC, PS, AC>,
 >(
   o: unknown,
-): o is Plugin & Activatable<PE, PEC, AC, AR> {
+): o is Plugin & Activatable<PE, PEC, PS, AC, AR> {
   if (isPlugin(o)) {
     return "activate" in o;
+  }
+  return false;
+}
+
+export function isActivatableSyncPlugin<
+  PE extends PluginExecutive,
+  PEC extends PluginExecutiveContext<PE>,
+  PS extends PluginsSupplier,
+  AC extends ActivateContext<PE, PEC, PS>,
+  AR extends ActivateResult<PE, PEC, PS, AC>,
+>(
+  o: unknown,
+): o is Plugin & ActivatableSync<PE, PEC, PS, AC, AR> {
+  if (isPlugin(o)) {
+    return "activateSync" in o;
   }
   return false;
 }

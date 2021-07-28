@@ -32,15 +32,17 @@ export const isFileSystemPluginSource = safety.typeGuard<
 export function fileSystemPluginRegistrar<
   PE extends fr.PluginExecutive,
   PC extends fr.PluginContext<PE>,
+  PS extends fr.PluginsSupplier,
 >(
   executive: PE,
+  supplier: PS,
   src: FileSystemPluginSource,
   sfro: sfp.ShellFileRegistrarOptions<PE, PC>,
-  tsro: tsExtn.TypeScriptRegistrarOptions<PE, PC>,
+  tsro: tsExtn.TypeScriptRegistrarOptions<PE, PC, PS>,
 ): fr.PluginRegistrar | undefined {
   switch (path.extname(src.absPathAndFileName)) {
     case ".ts":
-      return tsp.typeScriptFileRegistrar(executive, tsro);
+      return tsp.typeScriptFileRegistrar(executive, supplier, tsro);
 
     default:
       return sfp.shellFileRegistrar<PE, PC>(sfro);
@@ -59,6 +61,7 @@ export const isDiscoverFileSystemPluginSource = safety.typeGuard<
 export interface DiscoverFileSystemPluginsOptions<
   PE extends fr.PluginExecutive,
   PC extends fr.PluginContext<PE>,
+  PS extends fr.PluginsSupplier,
 > {
   readonly discoveryPath: FileSystemPathOnly;
   readonly globs: FileSystemGlobs;
@@ -67,16 +70,19 @@ export interface DiscoverFileSystemPluginsOptions<
   readonly shellFileRegistryOptions: sfp.ShellFileRegistrarOptions<PE, PC>;
   readonly typeScriptFileRegistryOptions: tsExtn.TypeScriptRegistrarOptions<
     PE,
-    PC
+    PC,
+    PS
   >;
 }
 
 export async function discoverFileSystemPlugins<
   PE extends fr.PluginExecutive,
   PC extends fr.PluginContext<PE>,
+  PS extends fr.PluginsSupplier,
 >(
   executive: PE,
-  options: DiscoverFileSystemPluginsOptions<PE, PC>,
+  supplier: PS,
+  options: DiscoverFileSystemPluginsOptions<PE, PC, PS>,
 ): Promise<void> {
   const { discoveryPath, globs, onValidPlugin, onInvalidPlugin } = options;
   for (const glob of globs) {
@@ -94,6 +100,7 @@ export async function discoverFileSystemPlugins<
 
         const register = fileSystemPluginRegistrar(
           executive,
+          supplier,
           dfspSrc,
           options.shellFileRegistryOptions,
           options.typeScriptFileRegistryOptions,

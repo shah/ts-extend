@@ -6,8 +6,15 @@ import * as fsp from "./file-sys-plugin.ts";
 
 export interface CommandProxyFileSystemPluginsManagerOptions<
   PE extends fr.PluginExecutive,
-  PC extends fr.PluginContext<PE>,
-> extends cp.CommandProxyPluginsManagerOptions<PE, PC> {
+  PC extends cp.CommandProxyPluginContext<PE>,
+  PS extends cp.CommandProxyPluginsManager<
+    PE,
+    PC,
+    CommandProxyFileSystemPluginsManager<PE, PC, AR>,
+    AR
+  >,
+  AR extends fr.ActionResult<PE, PC>,
+> extends cp.CommandProxyPluginsManagerOptions<PE, PC, PS> {
   readonly discoveryPath: string;
   readonly localFsSources: fsp.FileSystemGlobs;
 }
@@ -16,18 +23,28 @@ export class CommandProxyFileSystemPluginsManager<
   PE extends fr.PluginExecutive,
   PC extends cp.CommandProxyPluginContext<PE>,
   AR extends fr.ActionResult<PE, PC>,
-> extends cp.CommandProxyPluginsManager<PE, PC, AR> {
+> extends cp.CommandProxyPluginsManager<
+  PE,
+  PC,
+  CommandProxyFileSystemPluginsManager<PE, PC, AR>,
+  AR
+> {
   constructor(
     readonly executive: PE,
     readonly commands: Record<cp.ProxyableCommandText, cp.ProxyableCommand>,
-    readonly options: CommandProxyFileSystemPluginsManagerOptions<PE, PC>,
+    readonly options: CommandProxyFileSystemPluginsManagerOptions<
+      PE,
+      PC,
+      CommandProxyFileSystemPluginsManager<PE, PC, AR>,
+      AR
+    >,
   ) {
     super(executive, commands, options);
   }
 
   async init(): Promise<void> {
     const telemetry = new tsExtn.TypicalTypeScriptRegistrarTelemetry();
-    await fsp.discoverFileSystemPlugins(this.executive, {
+    await fsp.discoverFileSystemPlugins(this.executive, this, {
       discoveryPath: this.options.discoveryPath,
       globs: this.options.localFsSources,
       onValidPlugin: (vpr) => {

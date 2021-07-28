@@ -88,17 +88,23 @@ export function defaultTypeScriptPluginResultEnhancer<
 export interface CommandProxyPluginsManagerOptions<
   PE extends fr.PluginExecutive,
   PC extends fr.PluginContext<PE>,
+  PS extends fr.PluginsSupplier,
 > {
   readonly shellCmdEnvVarsSupplier?: shExtn.ShellCmdEnvVarsSupplier<PE, PC>;
   readonly shellCmdEnvVarsDefaultPrefix?: string;
   readonly shellCmdEnhancer?: shExtn.ShellCmdEnhancer<PE, PC>;
   readonly shellCmdPrepareRunOpts?: shExtn.PrepareShellCmdRunOptions<PE, PC>;
-  readonly typeScriptModuleOptions?: tsExtn.TypeScriptRegistrarOptions<PE, PC>;
+  readonly typeScriptModuleOptions?: tsExtn.TypeScriptRegistrarOptions<
+    PE,
+    PC,
+    PS
+  >;
 }
 
 export class CommandProxyPluginsManager<
   PE extends fr.PluginExecutive,
   PC extends CommandProxyPluginContext<PE>,
+  PS extends fr.PluginsSupplier,
   AR extends fr.ActionResult<PE, PC>,
 > implements fr.PluginsSupplier {
   readonly plugins: fr.Plugin[] = [];
@@ -108,7 +114,7 @@ export class CommandProxyPluginsManager<
   constructor(
     readonly executive: PE,
     readonly commands: Record<ProxyableCommandText, ProxyableCommand>,
-    readonly options: CommandProxyPluginsManagerOptions<PE, PC>,
+    readonly options: CommandProxyPluginsManagerOptions<PE, PC, PS>,
   ) {
   }
 

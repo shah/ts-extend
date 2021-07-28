@@ -10,11 +10,21 @@ export const constructed:
   & mod.DenoModuleActivatable<
     modT.TestExecutive,
     PluginContext,
-    mod.DenoModuleActivateContext<modT.TestExecutive, PluginContext>,
+    mod.PluginsSupplier,
+    mod.DenoModuleActivateContext<
+      modT.TestExecutive,
+      PluginContext,
+      mod.PluginsSupplier
+    >,
     mod.DenoModuleActivateResult<
       modT.TestExecutive,
       PluginContext,
-      mod.DenoModuleActivateContext<modT.TestExecutive, PluginContext>
+      mod.PluginsSupplier,
+      mod.DenoModuleActivateContext<
+        modT.TestExecutive,
+        PluginContext,
+        mod.PluginsSupplier
+      >
     >
   >
   & mod.Action<
