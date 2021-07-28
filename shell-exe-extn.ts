@@ -25,7 +25,7 @@ export interface PrepareShellCmdRunOptions<
 export interface ShellExePlugin<
   PE extends fr.PluginExecutive,
   PC extends fr.PluginContext<PE>,
-> extends fr.Plugin, fr.Action<PE, PC> {
+> extends fr.Plugin, fr.Action<PE, PC, fr.ActionResult<PE, PC>> {
   readonly shellCmd: (pc: PC) => string[];
   readonly envVars?: (pc: PC) => Record<string, string>;
 }

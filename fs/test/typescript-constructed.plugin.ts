@@ -7,19 +7,37 @@ type PluginContext = mod.PluginContext<modT.TestExecutive>;
 const graphNodeName = "pre-constructed system ID";
 export const constructed:
   & mod.DenoModulePlugin
-  & mod.Action<modT.TestExecutive, PluginContext>
+  & mod.DenoModuleActivatable<
+    modT.TestExecutive,
+    PluginContext,
+    mod.DenoModuleActivateContext<modT.TestExecutive, PluginContext>,
+    mod.DenoModuleActivateResult<
+      modT.TestExecutive,
+      PluginContext,
+      mod.DenoModuleActivateContext<modT.TestExecutive, PluginContext>
+    >
+  >
+  & mod.Action<
+    modT.TestExecutive,
+    PluginContext,
+    mod.ActionResult<modT.TestExecutive, PluginContext>
+  >
   & {
+    activateCountState: number;
     executeCountState: number;
     readonly graphNode: mod.PluginGraphNode;
   } = {
     module: this,
+    activateCountState: 0,
     executeCountState: 0,
     // deno-lint-ignore require-await
-    execute: async (
-      pc: PluginContext,
-    ): Promise<mod.ActionResult<modT.TestExecutive, PluginContext>> => {
+    activate: async (ac) => {
+      return { context: ac, registration: ac.vpr };
+    },
+    // deno-lint-ignore require-await
+    execute: async (context) => {
       constructed.executeCountState++;
-      return { pc };
+      return { context };
     },
     nature: { identity: "deno-custom" },
     source: {

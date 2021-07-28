@@ -62,8 +62,12 @@ export interface PluginsSupplier {
   readonly pluginsGraph: PluginsGraph;
 }
 
-export interface PluginContext<PE extends PluginExecutive> {
+export interface PluginExecutiveContext<PE extends PluginExecutive> {
   readonly container: PE;
+}
+
+export interface PluginContext<PE extends PluginExecutive>
+  extends PluginExecutiveContext<PE> {
   readonly plugin: Plugin;
 }
 
@@ -116,26 +120,68 @@ export const isPlugin = safety.typeGuard<Plugin>(
   "registerNode",
 );
 
-export interface ActionResult<
-  T extends PluginExecutive,
-  PC extends PluginContext<T>,
+export interface ActivateContext<
+  PE extends PluginExecutive,
+  PEC extends PluginExecutiveContext<PE>,
 > {
-  readonly pc: PC;
+  readonly context: PEC;
+  readonly vpr: ValidPluginRegistration;
+}
+
+export interface ActivateResult<
+  PE extends PluginExecutive,
+  PEC extends PluginExecutiveContext<PE>,
+  AC extends ActivateContext<PE, PEC>,
+> {
+  readonly context: AC;
+  readonly registration: ValidPluginRegistration | InvalidPluginRegistration;
+}
+
+export interface Activatable<
+  PE extends PluginExecutive,
+  PEC extends PluginExecutiveContext<PE>,
+  AC extends ActivateContext<PE, PEC>,
+  AR extends ActivateResult<PE, PEC, AC>,
+> {
+  readonly activate: (ac: AC) => Promise<AR>;
+}
+
+export function isActivatablePlugin<
+  PE extends PluginExecutive,
+  PEC extends PluginExecutiveContext<PE>,
+  AC extends ActivateContext<PE, PEC>,
+  AR extends ActivateResult<PE, PEC, AC>,
+>(
+  o: unknown,
+): o is Plugin & Activatable<PE, PEC, AC, AR> {
+  if (isPlugin(o)) {
+    return "activate" in o;
+  }
+  return false;
+}
+
+export interface ActionResult<
+  PE extends PluginExecutive,
+  PC extends PluginContext<PE>,
+> {
+  readonly context: PC;
 }
 
 export interface Action<
-  T extends PluginExecutive,
-  PC extends PluginContext<T>,
+  PE extends PluginExecutive,
+  PC extends PluginContext<PE>,
+  AR extends ActionResult<PE, PC>,
 > {
-  readonly execute: (pc: PC) => Promise<ActionResult<T, PC>>;
+  readonly execute: (pc: PC) => Promise<AR>;
 }
 
 export function isActionPlugin<
-  T extends PluginExecutive,
-  PC extends PluginContext<T>,
+  PE extends PluginExecutive,
+  PC extends PluginContext<PE>,
+  AR extends ActionResult<PE, PC>,
 >(
   o: unknown,
-): o is Plugin & Action<T, PC> {
+): o is Plugin & Action<PE, PC, AR> {
   if (isPlugin(o)) {
     return "execute" in o;
   }
@@ -143,25 +189,27 @@ export function isActionPlugin<
 }
 
 export interface FilterResult<
-  T extends PluginExecutive,
-  PC extends PluginContext<T>,
+  PE extends PluginExecutive,
+  PC extends PluginContext<PE>,
 > {
   readonly pc: PC;
 }
 
 export interface Filter<
-  T extends PluginExecutive,
-  PC extends PluginContext<T>,
+  PE extends PluginExecutive,
+  PC extends PluginContext<PE>,
+  FR extends FilterResult<PE, PC>,
 > {
-  readonly filter: (pc: PC) => Promise<FilterResult<T, PC>>;
+  readonly filter: (pc: PC) => Promise<FR>;
 }
 
 export function isFilterPlugin<
-  T extends PluginExecutive,
-  PC extends PluginContext<T>,
+  PE extends PluginExecutive,
+  PC extends PluginContext<PE>,
+  FR extends FilterResult<PE, PC>,
 >(
   o: unknown,
-): o is Plugin & Filter<T, PC> {
+): o is Plugin & Filter<PE, PC, FR> {
   if (isPlugin(o)) {
     return "filter" in o;
   }

@@ -69,7 +69,7 @@ export class TestCustomPluginsManager
   readonly localFsSources: mod.fs.FileSystemGlobs;
   readonly telemetry = new mod.TypicalTypeScriptRegistrarTelemetry();
 
-  constructor() {
+  constructor(readonly executive: TestExecutive) {
     this.localFsSources = ["**/*.plugin.*"];
   }
 
@@ -78,7 +78,7 @@ export class TestCustomPluginsManager
   }
 
   async init(): Promise<void> {
-    await mod.fs.discoverFileSystemPlugins({
+    await mod.fs.discoverFileSystemPlugins(this.executive, {
       discoveryPath: this.discoveryPath,
       globs: this.localFsSources,
       onValidPlugin: (vpr) => {
@@ -102,7 +102,8 @@ export class TestCustomPluginsManager
 }
 
 Deno.test(`File system plugins discovery with custom plugins manager`, async () => {
-  const pluginsMgr = new TestCustomPluginsManager();
+  const executive = new TestExecutive();
+  const pluginsMgr = new TestCustomPluginsManager(executive);
   await pluginsMgr.init();
   ta.assertEquals(6, pluginsMgr.plugins.length);
 
@@ -159,6 +160,7 @@ Deno.test(`File system plugins discovery with custom plugins manager`, async () 
 
   const tsConstructedPlugin = pluginsMgr.pluginByAbbrevName("constructed");
   ta.assert(mod.isDenoModulePlugin(tsConstructedPlugin));
+  ta.assert("activateCountState" in tsConstructedPlugin);
   ta.assert("executeCountState" in tsConstructedPlugin);
 });
 
@@ -245,7 +247,10 @@ Deno.test(`File system plugins discovery with commands proxy plugins manager`, a
   ta.assertEquals(0, unhandledCount);
   ta.assertEquals(6, results.length);
 
+  ta.assert("activateCountState" in tsConstructedPlugin);
   ta.assert("executeCountState" in tsConstructedPlugin);
+  // deno-lint-ignore no-explicit-any
+  ta.assert((tsConstructedPlugin as any).activateCountState == 0);
   // deno-lint-ignore no-explicit-any
   ta.assert((tsConstructedPlugin as any).executeCountState > 0);
 

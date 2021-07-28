@@ -33,13 +33,14 @@ export function fileSystemPluginRegistrar<
   PE extends fr.PluginExecutive,
   PC extends fr.PluginContext<PE>,
 >(
+  executive: PE,
   src: FileSystemPluginSource,
   sfro: sfp.ShellFileRegistrarOptions<PE, PC>,
-  tsro: tsExtn.TypeScriptRegistrarOptions,
+  tsro: tsExtn.TypeScriptRegistrarOptions<PE, PC>,
 ): fr.PluginRegistrar | undefined {
   switch (path.extname(src.absPathAndFileName)) {
     case ".ts":
-      return tsp.typeScriptFileRegistrar(tsro);
+      return tsp.typeScriptFileRegistrar(executive, tsro);
 
     default:
       return sfp.shellFileRegistrar<PE, PC>(sfro);
@@ -64,13 +65,17 @@ export interface DiscoverFileSystemPluginsOptions<
   readonly onValidPlugin: (vpr: fr.ValidPluginRegistration) => void;
   readonly onInvalidPlugin?: (ipr: fr.InvalidPluginRegistration) => void;
   readonly shellFileRegistryOptions: sfp.ShellFileRegistrarOptions<PE, PC>;
-  readonly typeScriptFileRegistryOptions: tsExtn.TypeScriptRegistrarOptions;
+  readonly typeScriptFileRegistryOptions: tsExtn.TypeScriptRegistrarOptions<
+    PE,
+    PC
+  >;
 }
 
 export async function discoverFileSystemPlugins<
   PE extends fr.PluginExecutive,
   PC extends fr.PluginContext<PE>,
 >(
+  executive: PE,
   options: DiscoverFileSystemPluginsOptions<PE, PC>,
 ): Promise<void> {
   const { discoveryPath, globs, onValidPlugin, onInvalidPlugin } = options;
@@ -88,6 +93,7 @@ export async function discoverFileSystemPlugins<
         };
 
         const register = fileSystemPluginRegistrar(
+          executive,
           dfspSrc,
           options.shellFileRegistryOptions,
           options.typeScriptFileRegistryOptions,

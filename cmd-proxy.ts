@@ -93,7 +93,7 @@ export interface CommandProxyPluginsManagerOptions<
   readonly shellCmdEnvVarsDefaultPrefix?: string;
   readonly shellCmdEnhancer?: shExtn.ShellCmdEnhancer<PE, PC>;
   readonly shellCmdPrepareRunOpts?: shExtn.PrepareShellCmdRunOptions<PE, PC>;
-  readonly typeScriptModuleOptions?: tsExtn.TypeScriptRegistrarOptions;
+  readonly typeScriptModuleOptions?: tsExtn.TypeScriptRegistrarOptions<PE, PC>;
 }
 
 export class CommandProxyPluginsManager<
@@ -202,7 +202,7 @@ export class CommandProxyPluginsManager<
     const results: fr.ActionResult<PE, PC>[] = [];
     for (const plugin of this.plugins) {
       const cppc = this.createExecutePluginContext(command, plugin, options);
-      if (fr.isActionPlugin<PE, PC>(plugin)) {
+      if (fr.isActionPlugin<PE, PC, fr.ActionResult<PE, PC>>(plugin)) {
         results.push(await plugin.execute(cppc));
       } else if (options?.onUnhandledPlugin) {
         options?.onUnhandledPlugin(cppc);

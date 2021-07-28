@@ -26,7 +26,7 @@ export class CommandProxyFileSystemPluginsManager<
 
   async init(): Promise<void> {
     const telemetry = new tsExtn.TypicalTypeScriptRegistrarTelemetry();
-    await fsp.discoverFileSystemPlugins({
+    await fsp.discoverFileSystemPlugins(this.executive, {
       discoveryPath: this.options.discoveryPath,
       globs: this.options.localFsSources,
       onValidPlugin: (vpr) => {

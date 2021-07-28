@@ -57,22 +57,24 @@ export function shellFileRegistrarSync<
             ? options.shellCmdEnhancer(pc, isExecutableCmd)
             : isExecutableCmd;
         },
-        execute: async (pc: PC): Promise<fr.ActionResult<PE, PC>> => {
+        execute: async (context) => {
           const cmd = options.shellCmdEnhancer
-            ? options.shellCmdEnhancer(pc, isExecutableCmd)
+            ? options.shellCmdEnhancer(context, isExecutableCmd)
             : isExecutableCmd;
           const rscResult = await shell.runShellCommand(
             {
               cmd: cmd,
               cwd: path.dirname(source.absPathAndFileName),
               env: options.envVarsSupplier
-                ? options.envVarsSupplier(pc)
+                ? options.envVarsSupplier(context)
                 : undefined,
             },
-            options.runShellCmdOpts ? options.runShellCmdOpts(pc) : undefined,
+            options.runShellCmdOpts
+              ? options.runShellCmdOpts(context)
+              : undefined,
           );
           const actionResult: shExtn.ShellExeActionResult<PE, PC> = {
-            pc,
+            context,
             rscResult,
           };
           return actionResult;

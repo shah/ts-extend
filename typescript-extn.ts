@@ -6,18 +6,6 @@ export interface DenoModulePlugin extends fr.Plugin {
   readonly module: unknown;
 }
 
-/**
- * DenoModuleMetaData represents Plugin information defined as constants in
- * a Deno module. Plugin details defined in this interface may be overridden
- * by a Deno module plugin.
- */
-export interface DenoModuleMetaData
-  extends fr.MutableOptionalPluginsGraphParticipant {
-  nature: fr.MutableOptionalPluginNature;
-  source: fr.MutableOptionalPluginSource;
-  constructGraphNode?: (metaData: DenoModuleMetaData) => fr.PluginGraphNode;
-}
-
 export const isDenoModulePlugin = safety.typeGuard<DenoModulePlugin>(
   "nature",
   "source",
@@ -25,20 +13,88 @@ export const isDenoModulePlugin = safety.typeGuard<DenoModulePlugin>(
   "module",
 );
 
-export interface TypeScriptModuleRegistrationSupplier {
+export interface DenoModuleActivateContext<
+  PE extends fr.PluginExecutive,
+  PEC extends fr.PluginExecutiveContext<PE>,
+> extends fr.ActivateContext<PE, PEC> {
+  readonly metaData: DenoModuleMetaData<PE, PEC>;
+}
+
+// deno-lint-ignore no-empty-interface
+export interface DenoModuleActivateResult<
+  PE extends fr.PluginExecutive,
+  PEC extends fr.PluginExecutiveContext<PE>,
+  DMAC extends DenoModuleActivateContext<PE, PEC>,
+> extends fr.ActivateResult<PE, PEC, DMAC> {
+}
+
+// deno-lint-ignore no-empty-interface
+export interface DenoModuleActivatable<
+  PE extends fr.PluginExecutive,
+  PEC extends fr.PluginExecutiveContext<PE>,
+  DMAC extends DenoModuleActivateContext<PE, PEC>,
+  DMAR extends DenoModuleActivateResult<PE, PEC, DMAC>,
+> extends fr.Activatable<PE, PEC, DMAC, DMAR> {
+}
+
+export function isDenoModuleActivatablePlugin<
+  PE extends fr.PluginExecutive,
+  PEC extends fr.PluginExecutiveContext<PE>,
+  DMAC extends DenoModuleActivateContext<PE, PEC>,
+  DMAR extends DenoModuleActivateResult<PE, PEC, DMAC>,
+>(
+  o: unknown,
+): o is DenoModulePlugin & DenoModuleActivatable<PE, PEC, DMAC, DMAR> {
+  if (isDenoModulePlugin(o)) {
+    return "activate" in o;
+  }
+  return false;
+}
+
+/**
+ * DenoModuleMetaData represents Plugin information defined as constants in
+ * a Deno module. Plugin details defined in this interface may be overridden
+ * by a Deno module plugin.
+ */
+export interface DenoModuleMetaData<
+  PE extends fr.PluginExecutive,
+  PEC extends fr.PluginExecutiveContext<PE>,
+> extends fr.MutableOptionalPluginsGraphParticipant {
+  nature: fr.MutableOptionalPluginNature;
+  source: fr.MutableOptionalPluginSource;
+  constructGraphNode?: (
+    metaData: DenoModuleMetaData<PE, PEC>,
+  ) => fr.PluginGraphNode;
+  activate?: (
+    ac: DenoModuleActivateContext<PE, PEC>,
+  ) => Promise<
+    DenoModuleActivateResult<PE, PEC, DenoModuleActivateContext<PE, PEC>>
+  >;
+  untyped: Record<string, unknown>;
+}
+
+export interface TypeScriptModuleRegistrationSupplier<
+  PE extends fr.PluginExecutive,
+  PEC extends fr.PluginExecutiveContext<PE>,
+> {
   (
+    executive: PE,
     potential: DenoModulePlugin,
-  ): fr.ValidPluginRegistration | fr.InvalidPluginRegistration;
+    metaData: DenoModuleMetaData<PE, PEC>,
+  ): Promise<fr.ValidPluginRegistration | fr.InvalidPluginRegistration>;
 }
 
 export interface TypeScriptRegistrarTelemetry extends telem.Instrumentation {
   readonly import: (source: URL) => telem.Instrumentable;
 }
 
-export interface TypeScriptRegistrarOptions {
-  readonly validateModule: TypeScriptModuleRegistrationSupplier;
+export interface TypeScriptRegistrarOptions<
+  PE extends fr.PluginExecutive,
+  PEC extends fr.PluginExecutiveContext<PE>,
+> {
+  readonly validateModule: TypeScriptModuleRegistrationSupplier<PE, PEC>;
   readonly importModule: (src: URL) => Promise<unknown>;
-  readonly moduleMetaData: (module: unknown) => DenoModuleMetaData;
+  readonly moduleMetaData: (module: unknown) => DenoModuleMetaData<PE, PEC>;
   readonly telemetry: TypeScriptRegistrarTelemetry;
 }
 
@@ -145,20 +201,24 @@ export async function importCachedModule(
   return mce.module;
 }
 
-export function registerDenoFunctionModule<
+export async function registerDenoFunctionModule<
   PE extends fr.PluginExecutive,
   PC extends fr.PluginContext<PE>,
 >(
+  executive: PE,
   potential: DenoModulePlugin,
-): fr.ValidPluginRegistration | fr.InvalidPluginRegistration {
+  metaData: DenoModuleMetaData<PE, PC>,
+): Promise<fr.ValidPluginRegistration | fr.InvalidPluginRegistration> {
   // deno-lint-ignore no-explicit-any
   const module = potential.module as any;
   const moduleDefault = module.default;
 
+  // if we've already created a valid plugin (e.g. from cache)
   if (fr.isValidPluginRegistration(moduleDefault)) {
     return moduleDefault;
   }
 
+  // if an entire plugin is pre-constructed
   if (isDenoModulePlugin(moduleDefault)) {
     const result: fr.ValidPluginRegistration = {
       plugin: moduleDefault,
@@ -167,6 +227,7 @@ export function registerDenoFunctionModule<
     return result;
   }
 
+  // not cached or pre-constructed, see if it's a function
   if (typeof moduleDefault === "function") {
     const handler = moduleDefault as DenoFunctionModuleHandler<PE, PC>;
     const handlerConstrName = handler.constructor.name;
@@ -174,24 +235,43 @@ export function registerDenoFunctionModule<
       handlerConstrName === "AsyncGeneratorFunction");
     const isAsync = handlerConstrName === "AsyncFunction" ||
       handlerConstrName === "AsyncGeneratorFunction";
-    const plugin: DenoFunctionModulePlugin<PE, PC> & fr.Action<PE, PC> = {
-      ...potential,
-      handler,
-      isAsync,
-      isGenerator,
-      execute: async (pc: PC): Promise<fr.ActionResult<PE, PC>> => {
-        const dfmhResult = isAsync ? await handler(pc) : handler(pc);
-        const actionResult: DenoFunctionModuleActionResult<PE, PC> = {
-          pc,
-          dfmhResult,
-        };
-        return actionResult;
-      },
-    };
+    const plugin:
+      & DenoFunctionModulePlugin<PE, PC>
+      & fr.Action<PE, PC, fr.ActionResult<PE, PC>> = {
+        ...potential,
+        handler,
+        isAsync,
+        isGenerator,
+        execute: async (context) => {
+          const dfmhResult = isAsync
+            ? await handler(context)
+            : handler(context);
+          const actionResult: DenoFunctionModuleActionResult<PE, PC> = {
+            context,
+            dfmhResult,
+          };
+          return actionResult;
+        },
+      };
     const result: fr.ValidPluginRegistration = {
       source: potential.source,
       plugin,
     };
+    if (
+      isDenoModuleActivatablePlugin<
+        PE,
+        PC,
+        DenoModuleActivateContext<PE, PC>,
+        DenoModuleActivateResult<PE, PC, DenoModuleActivateContext<PE, PC>>
+      >(plugin)
+    ) {
+      const ar = await plugin.activate({
+        context: { container: executive } as PC,
+        metaData,
+        vpr: result,
+      });
+      return ar.registration;
+    }
     return result;
   }
 
@@ -219,13 +299,18 @@ export class TypicalTypeScriptRegistrarTelemetry extends telem.Telemetry
   }
 }
 
-export function moduleMetaData(module: unknown): DenoModuleMetaData {
-  const result: DenoModuleMetaData = {
+export function moduleMetaData<
+  PE extends fr.PluginExecutive,
+  PEC extends fr.PluginExecutiveContext<PE>,
+>(module: unknown): DenoModuleMetaData<PE, PEC> {
+  const result: DenoModuleMetaData<PE, PEC> = {
     nature: {},
     source: {},
+    untyped: {},
   };
   for (const entry of Object.entries(module as Record<string, unknown>)) {
     const [key, value] = entry;
+    result.untyped[key] = value;
     if (typeof value === "string") {
       switch (key) {
         case "systemID":
@@ -264,8 +349,22 @@ export function moduleMetaData(module: unknown): DenoModuleMetaData {
 
         case "constructGraphNode":
           // TODO: enhance type checking because a function could be defined incorrectly at runtime
-          result.constructGraphNode =
-            value as ((metaData: DenoModuleMetaData) => fr.PluginGraphNode);
+          result.constructGraphNode = value as ((
+            metaData: DenoModuleMetaData<PE, PEC>,
+          ) => fr.PluginGraphNode);
+          break;
+
+        case "activate":
+          // TODO: enhance type checking because a function could be defined incorrectly at runtime
+          result.activate = value as ((
+            ac: DenoModuleActivateContext<PE, PEC>,
+          ) => Promise<
+            DenoModuleActivateResult<
+              PE,
+              PEC,
+              DenoModuleActivateContext<PE, PEC>
+            >
+          >);
           break;
       }
     }
