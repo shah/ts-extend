@@ -192,7 +192,7 @@ export interface FilterResult<
   PE extends PluginExecutive,
   PC extends PluginContext<PE>,
 > {
-  readonly pc: PC;
+  readonly context: PC;
 }
 
 export interface Filter<

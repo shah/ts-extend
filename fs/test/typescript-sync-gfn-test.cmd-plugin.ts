@@ -2,13 +2,13 @@ import * as mod from "../../mod.ts";
 import * as modT from "../../mod_test.ts";
 
 export interface TestGenSyncPluginFunctionResult {
-  readonly pc: mod.PluginContext<modT.TestExecutive>;
+  readonly context: mod.PluginContext<modT.TestExecutive>;
 }
 
 export function* testGenSyncPluginFunction(
-  pc: mod.PluginContext<modT.TestExecutive>,
+  context: mod.PluginContext<modT.TestExecutive>,
 ): Generator<TestGenSyncPluginFunctionResult, void, unknown> {
-  yield { pc };
+  yield { context };
   return undefined;
 }
 

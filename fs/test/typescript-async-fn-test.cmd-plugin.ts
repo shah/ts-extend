@@ -2,14 +2,14 @@ import * as mod from "../../mod.ts";
 import * as modT from "../../mod_test.ts";
 
 export interface TestAsyncPluginFunctionResult {
-  readonly pc: mod.PluginContext<modT.TestExecutive>;
+  readonly context: mod.PluginContext<modT.TestExecutive>;
 }
 
 // publish the function so that the extension framework finds it
 // deno-lint-ignore require-await
 export default async function (
-  pc: mod.PluginContext<modT.TestExecutive>,
+  context: mod.PluginContext<modT.TestExecutive>,
 ): Promise<TestAsyncPluginFunctionResult> {
   // just return the whole context, which shows we can do whatever we want
-  return { pc };
+  return { context };
 }
