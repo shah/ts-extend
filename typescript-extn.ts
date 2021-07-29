@@ -1,4 +1,4 @@
-import { colors, govnSvcTelemetry as telem, safety } from "./deps.ts";
+import { colors, govnSvcTelemetry as telem, path, safety } from "./deps.ts";
 import * as fr from "./framework.ts";
 import { Cache, lruCache } from "./cache.ts";
 

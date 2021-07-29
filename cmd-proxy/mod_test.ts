@@ -59,7 +59,7 @@ Deno.test(`File system plugins discovery with commands proxy plugins manager`, a
   ta.assert(extn.isShellExePlugin(shellExePlugin));
 
   const tsAsyncPlugin = pluginByAbbrevName(
-    "typescript-async-fn-test.cmd-plugin.ts",
+    "async-fn-test.cmd-plugin.ts",
   );
   ta.assert(extn.isDenoFunctionModulePlugin(tsAsyncPlugin));
   if (extn.isDenoFunctionModulePlugin(tsAsyncPlugin)) {
@@ -68,7 +68,7 @@ Deno.test(`File system plugins discovery with commands proxy plugins manager`, a
   }
 
   const tsAsyncGenPlugin = pluginByAbbrevName(
-    "typescript-async-gfn-test.cmd-plugin.ts",
+    "async-gfn-test.cmd-plugin.ts",
   );
   ta.assert(extn.isDenoFunctionModulePlugin(tsAsyncGenPlugin));
   if (extn.isDenoFunctionModulePlugin(tsAsyncGenPlugin)) {
@@ -77,7 +77,7 @@ Deno.test(`File system plugins discovery with commands proxy plugins manager`, a
   }
 
   const tsSyncPlugin = pluginByAbbrevName(
-    "typescript-sync-fn-test.cmd-plugin.ts",
+    "sync-fn-test.cmd-plugin.ts",
   );
   ta.assert(extn.isDenoFunctionModulePlugin(tsSyncPlugin));
   if (extn.isDenoFunctionModulePlugin(tsSyncPlugin)) {
@@ -86,7 +86,7 @@ Deno.test(`File system plugins discovery with commands proxy plugins manager`, a
   }
 
   const tsSyncGenPlugin = pluginByAbbrevName(
-    "typescript-sync-gfn-test.cmd-plugin.ts",
+    "sync-gfn-test.cmd-plugin.ts",
   );
   ta.assert(extn.isDenoFunctionModulePlugin(tsSyncGenPlugin));
   if (extn.isDenoFunctionModulePlugin(tsSyncGenPlugin)) {

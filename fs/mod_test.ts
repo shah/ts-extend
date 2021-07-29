@@ -3,6 +3,7 @@ import { testingAsserts as ta } from "../deps-test.ts";
 import * as testGovn from "./test/governance.ts";
 import * as mod from "../mod.ts";
 import * as modFS from "./mod.ts";
+import * as testStatic from "./test/static.ts";
 
 const testModuleLocalFsPath = path.relative(
   Deno.cwd(),
@@ -75,7 +76,13 @@ export class TestCustomPluginsManager
   }
 
   protected async init(): Promise<void> {
-    await modFS.discoverFileSystemPlugins({
+    const dfspo: modFS.DiscoverFileSystemPluginsOptions<
+      TestExecutive,
+      testGovn.TestPluginContext,
+      testGovn.TestPluginsSupplier,
+      testGovn.TestPluginActivateCtx,
+      testGovn.TestPluginActivateResult
+    > = {
       discoveryPath: this.discoveryPath,
       globs: this.localFsSources,
       onValidPlugin: (vpr) => {
@@ -95,7 +102,17 @@ export class TestCustomPluginsManager
         moduleMetaData: mod.moduleMetaData,
         telemetry: this.telemetry,
       },
-    });
+    };
+    const staticModule = await mod.registerDenoFunctionModule(
+      this.executive,
+      this,
+      { ...testStatic.custom, module: testStatic },
+      dfspo.typeScriptFileRegistryOptions.moduleMetaData(testStatic),
+    );
+    if (mod.isValidPluginRegistration(staticModule)) {
+      dfspo.onValidPlugin(staticModule);
+    }
+    await modFS.discoverFileSystemPlugins(dfspo);
   }
 
   async activate(): Promise<void> {
@@ -135,7 +152,7 @@ Deno.test(`File system plugins discovery with custom plugins manager`, async () 
   const executive = new TestExecutive();
   const pluginsMgr = new TestCustomPluginsManager(executive);
   await pluginsMgr.activate();
-  ta.assertEquals(6, pluginsMgr.plugins.length);
+  ta.assertEquals(7, pluginsMgr.plugins.length);
 
   // TODO: update as more telemetry is added, right now only TypeScript modules are instrumented
   ta.assertEquals(5, pluginsMgr.telemetry.instruments.length);
@@ -149,7 +166,7 @@ Deno.test(`File system plugins discovery with custom plugins manager`, async () 
   ta.assert(mod.isShellExePlugin(shellExePlugin));
 
   const tsAsyncPlugin = pluginsMgr.pluginByAbbrevName(
-    "typescript-async-fn-test.plugin.ts",
+    "async-fn-test.plugin.ts",
   );
   ta.assert(mod.isDenoFunctionModulePlugin(tsAsyncPlugin));
   if (mod.isDenoFunctionModulePlugin(tsAsyncPlugin)) {
@@ -158,7 +175,7 @@ Deno.test(`File system plugins discovery with custom plugins manager`, async () 
   }
 
   const tsAsyncGenPlugin = pluginsMgr.pluginByAbbrevName(
-    "typescript-async-gfn-test.plugin.ts",
+    "async-gfn-test.plugin.ts",
   );
   ta.assert(mod.isDenoFunctionModulePlugin(tsAsyncGenPlugin));
   if (mod.isDenoFunctionModulePlugin(tsAsyncGenPlugin)) {
@@ -167,7 +184,7 @@ Deno.test(`File system plugins discovery with custom plugins manager`, async () 
   }
 
   const tsSyncPlugin = pluginsMgr.pluginByAbbrevName(
-    "typescript-sync-fn-test.plugin.ts",
+    "sync-fn-test.plugin.ts",
   );
   ta.assert(mod.isDenoFunctionModulePlugin(tsSyncPlugin));
   if (mod.isDenoFunctionModulePlugin(tsSyncPlugin)) {
@@ -180,7 +197,7 @@ Deno.test(`File system plugins discovery with custom plugins manager`, async () 
   }
 
   const tsSyncGenPlugin = pluginsMgr.pluginByAbbrevName(
-    "typescript-sync-gfn-test.plugin.ts",
+    "sync-gfn-test.plugin.ts",
   );
   ta.assert(mod.isDenoFunctionModulePlugin(tsSyncPlugin));
   if (mod.isDenoFunctionModulePlugin(tsSyncGenPlugin)) {
@@ -192,4 +209,9 @@ Deno.test(`File system plugins discovery with custom plugins manager`, async () 
   ta.assert(mod.isDenoModulePlugin(tsConstructedPlugin));
   ta.assert(testGovn.isTestState(tsConstructedPlugin));
   ta.assert(tsConstructedPlugin.activateCountState == 1);
+
+  const staticPlugin = pluginsMgr.pluginByAbbrevName("static");
+  ta.assert(mod.isDenoModulePlugin(staticPlugin));
+  ta.assert(testGovn.isTestState(staticPlugin));
+  ta.assert(staticPlugin.activateCountState == 1);
 });
