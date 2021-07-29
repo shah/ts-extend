@@ -152,11 +152,7 @@ export class CommandProxyPluginsManager<
           this.plugins.push(dmac.vpr.plugin);
           dmac.vpr.plugin.registerNode(this.pluginsGraph);
         } else {
-          if (fr.isInvalidPluginRegistration(activatedPR)) {
-            this.handleInvalidPlugin(activatedPR);
-          } else {
-            console.error("UNKOWN ERROR 0x001221");
-          }
+          this.handleInvalidPlugin(activatedPR.registration);
         }
       } else {
         // not a typescript module or no activation hook requested, no special activation

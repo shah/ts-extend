@@ -133,11 +133,7 @@ export class TestCustomPluginsManager
           this.plugins.push(dmac.vpr.plugin);
           dmac.vpr.plugin.registerNode(this.pluginsGraph);
         } else {
-          if (mod.isInvalidPluginRegistration(activatedPR)) {
-            this.invalidPlugins.push(activatedPR);
-          } else {
-            console.error("UNKOWN ERROR 0x001221");
-          }
+          this.invalidPlugins.push(activatedPR.registration);
         }
       } else {
         // not a typescript module or no activation hook requested, no special activation
