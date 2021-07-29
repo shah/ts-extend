@@ -85,34 +85,23 @@ export function defaultTypeScriptPluginResultEnhancer<
   return dfmhResult;
 }
 
-export interface CommandProxyPluginsManagerOptions<
-  PE extends fr.PluginExecutive,
-  PC extends fr.PluginContext<PE>,
-  PS extends fr.PluginsSupplier<PE>,
-  DMAC extends tsExtn.DenoModuleActivateContext<PE, PC, PS>,
-  DMAR extends tsExtn.DenoModuleActivateResult<PE, PC, PS, DMAC>,
-> {
-  readonly shellCmdEnvVarsSupplier?: shExtn.ShellCmdEnvVarsSupplier<PE, PC>;
-  readonly shellCmdEnvVarsDefaultPrefix?: string;
-  readonly shellCmdEnhancer?: shExtn.ShellCmdEnhancer<PE, PC>;
-  readonly shellCmdPrepareRunOpts?: shExtn.PrepareShellCmdRunOptions<PE, PC>;
-  readonly typeScriptModuleOptions?: tsExtn.TypeScriptRegistrarOptions<
-    PE,
-    PC,
-    PS,
-    DMAC,
-    DMAR
-  >;
+// deno-lint-ignore no-empty-interface
+export interface CommandProxyPluginsSupplier<PE extends fr.PluginExecutive>
+  extends fr.PluginsSupplier<PE> {
 }
 
-export class CommandProxyPluginsManager<
+export interface CommandProxyPluginsManagerOptions<
   PE extends fr.PluginExecutive,
-  CPPC extends CommandProxyPluginContext<PE>,
-  PS extends fr.PluginsSupplier<PE>,
-  DMAC extends tsExtn.DenoModuleActivateContext<PE, CPPC, PS>,
-  DMAR extends tsExtn.DenoModuleActivateResult<PE, CPPC, PS, DMAC>,
-  AR extends fr.ActionResult<PE, CPPC>,
-> implements fr.PluginsSupplier<PE> {
+> {
+  readonly shellCmdEnvVarsSupplier?: shExtn.ShellCmdEnvVarsSupplier<PE>;
+  readonly shellCmdEnvVarsDefaultPrefix?: string;
+  readonly shellCmdEnhancer?: shExtn.ShellCmdEnhancer<PE>;
+  readonly shellCmdPrepareRunOpts?: shExtn.PrepareShellCmdRunOptions<PE>;
+  readonly typeScriptModuleOptions?: tsExtn.TypeScriptRegistrarOptions<PE>;
+}
+
+export class CommandProxyPluginsManager<PE extends fr.PluginExecutive>
+  implements CommandProxyPluginsSupplier<PE> {
   readonly plugins: fr.Plugin[] = [];
   readonly validInactivePlugins: fr.ValidPluginRegistration[] = [];
   readonly pluginsGraph: fr.PluginsGraph = new cxg.CxGraph();
@@ -121,13 +110,7 @@ export class CommandProxyPluginsManager<
   constructor(
     readonly executive: PE,
     readonly commands: Record<ProxyableCommandText, ProxyableCommand>,
-    readonly options: CommandProxyPluginsManagerOptions<
-      PE,
-      CPPC,
-      PS,
-      DMAC,
-      DMAR
-    >,
+    readonly options: CommandProxyPluginsManagerOptions<PE>,
   ) {
   }
 
@@ -137,27 +120,29 @@ export class CommandProxyPluginsManager<
   async activate(): Promise<void> {
     await this.init();
     for (const vpr of this.validInactivePlugins) {
-      const dmac: DMAC = {
-        context: { container: this.executive },
+      const dmac: fr.ActivateContext<
+        PE,
+        fr.PluginContext<PE>,
+        fr.PluginsSupplier<PE>
+      > = {
+        context: { container: this.executive, plugin: vpr.plugin },
         supplier: this,
         vpr,
-      } as unknown as DMAC; // TODO figure out why this requires cast :-(
+      };
       if (
-        tsExtn.isDenoModuleActivatablePlugin<PE, CPPC, PS, DMAC, DMAR>(
+        tsExtn.isDenoModuleActivatablePlugin<PE>(
           dmac.vpr.plugin,
         )
       ) {
         const activatedPR = await dmac.vpr.plugin.activate(dmac);
         if (fr.isValidPluginRegistration(activatedPR.registration)) {
           this.plugins.push(dmac.vpr.plugin);
-          dmac.vpr.plugin.registerNode(this.pluginsGraph);
         } else {
           this.handleInvalidPlugin(activatedPR.registration);
         }
       } else {
         // not a typescript module or no activation hook requested, no special activation
         this.plugins.push(dmac.vpr.plugin);
-        dmac.vpr.plugin.registerNode(this.pluginsGraph);
       }
     }
   }
@@ -217,12 +202,14 @@ export class CommandProxyPluginsManager<
     options?: {
       readonly onActivity?: CommandProxyPluginActivityReporter;
     },
-  ): CPPC {
-    const pc: CPPC = {
+  ): CommandProxyPluginContext<PE> & {
+    readonly onActivity?: CommandProxyPluginActivityReporter;
+  } {
+    const pc: CommandProxyPluginContext<PE> = {
       container: this.executive,
       plugin,
       command,
-    } as CPPC; // TODO: figure out why typecasting is required, was getting error
+    };
     return options?.onActivity
       ? {
         ...pc,
@@ -243,16 +230,18 @@ export class CommandProxyPluginsManager<
     command: ProxyableCommand,
     options?: {
       readonly onActivity?: CommandProxyPluginActivityReporter;
-      readonly onUnhandledPlugin?: (pc: CPPC) => void;
+      readonly onUnhandledPlugin?: (pc: CommandProxyPluginContext<PE>) => void;
     },
-  ): Promise<AR[]> {
-    const results: AR[] = [];
+  ): Promise<fr.ActionResult<PE, fr.PluginContext<PE>>[]> {
+    const results: fr.ActionResult<PE, fr.PluginContext<PE>>[] = [];
     for (const plugin of this.plugins) {
       const cppc = this.createExecutePluginContext(command, plugin, options);
-      if (fr.isActionPlugin<PE, CPPC, AR>(plugin)) {
+      if (
+        fr.isActionPlugin<PE>(plugin)
+      ) {
         results.push(await plugin.execute(cppc));
       } else if (
-        fr.isActionSyncPlugin<PE, CPPC, AR>(plugin)
+        fr.isActionSyncPlugin<PE>(plugin)
       ) {
         results.push(plugin.executeSync(cppc));
       } else if (options?.onUnhandledPlugin) {

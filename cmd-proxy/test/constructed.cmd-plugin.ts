@@ -12,6 +12,7 @@ export const constructed:
     // deno-lint-ignore require-await
     activate: async (ac) => {
       constructed.activateCountState++;
+      ac.supplier.pluginsGraph.addNode(constructed.graphNode);
       return { context: ac, registration: ac.vpr };
     },
     // deno-lint-ignore require-await
@@ -27,10 +28,6 @@ export const constructed:
       graphNodeName: graphNodeName,
     },
     graphNode: new cxg.Node(graphNodeName),
-    registerNode: (graph) => {
-      graph.addNode(constructed.graphNode);
-      return constructed.graphNode;
-    },
   };
 
 // publish a fully constructed plugin

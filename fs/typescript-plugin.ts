@@ -5,12 +5,11 @@ import * as fs from "./file-sys-plugin.ts";
 
 export function typeScriptFileRegistrar<
   PE extends fr.PluginExecutive,
-  PEC extends fr.PluginExecutiveContext<PE>,
   PS extends fr.PluginsSupplier<PE>,
-  DMAC extends tsExtn.DenoModuleActivateContext<PE, PEC, PS>,
-  DMAR extends tsExtn.DenoModuleActivateResult<PE, PEC, PS, DMAC>,
 >(
-  tsro: tsExtn.TypeScriptRegistrarOptions<PE, PEC, PS, DMAC, DMAR>,
+  executive: PE,
+  supplier: PS,
+  tsro: tsExtn.TypeScriptRegistrarOptions<PE>,
 ): fr.PluginRegistrar {
   return async (
     originalSource: fr.PluginSource,
@@ -38,15 +37,11 @@ export function typeScriptFileRegistrar<
             module,
             source,
             graphNode,
-            registerNode: metaData.registerNode || ((graph) => {
-              graph.addNode(graphNode);
-              return graphNode;
-            }),
             nature: { identity: "deno-module", ...metaData.nature },
           };
           return await tsro.validateModule(
-            tsro.executive,
-            tsro.supplier,
+            executive,
+            supplier,
             potential,
             metaData,
           );

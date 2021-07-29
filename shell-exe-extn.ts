@@ -1,45 +1,29 @@
 import { safety, shell } from "./deps.ts";
 import * as fr from "./framework.ts";
 
-export interface ShellCmdEnvVarsSupplier<
-  PE extends fr.PluginExecutive,
-  PC extends fr.PluginContext<PE>,
-> {
-  (pc: PC): Record<string, string>;
+export interface ShellCmdEnvVarsSupplier<PE extends fr.PluginExecutive> {
+  (pc: fr.PluginContext<PE>): Record<string, string>;
 }
 
-export interface ShellCmdEnhancer<
-  PE extends fr.PluginExecutive,
-  PC extends fr.PluginContext<PE>,
-> {
-  (pc: PC, suggestedCmd: string[]): string[];
+export interface ShellCmdEnhancer<PE extends fr.PluginExecutive> {
+  (pc: fr.PluginContext<PE>, suggestedCmd: string[]): string[];
 }
 
-export interface PrepareShellCmdRunOptions<
-  PE extends fr.PluginExecutive,
-  PC extends fr.PluginContext<PE>,
-> {
-  (pc: PC): shell.RunShellCommandOptions;
+export interface PrepareShellCmdRunOptions<PE extends fr.PluginExecutive> {
+  (pc: fr.PluginContext<PE>): shell.RunShellCommandOptions;
 }
 
-export interface ShellExePlugin<
-  PE extends fr.PluginExecutive,
-  PC extends fr.PluginContext<PE>,
-  AR extends ShellExeActionResult<PE, PC>,
-> extends fr.Plugin, fr.Action<PE, PC, AR> {
-  readonly shellCmd: (pc: PC) => string[];
-  readonly envVars?: (pc: PC) => Record<string, string>;
+export interface ShellExePlugin<PE extends fr.PluginExecutive>
+  extends fr.Plugin, fr.Action<PE> {
+  readonly shellCmd: (pc: fr.PluginContext<PE>) => string[];
+  readonly envVars?: (pc: fr.PluginContext<PE>) => Record<string, string>;
 }
 
-export function isShellExePlugin<
-  PE extends fr.PluginExecutive,
-  PC extends fr.PluginContext<PE>,
-  AR extends ShellExeActionResult<PE, PC>,
->(
+export function isShellExePlugin<PE extends fr.PluginExecutive>(
   o: unknown,
-): o is ShellExePlugin<PE, PC, AR> {
+): o is ShellExePlugin<PE> {
   if (fr.isPlugin(o)) {
-    const isShellExPlugin = safety.typeGuard<ShellExePlugin<PE, PC, AR>>(
+    const isShellExPlugin = safety.typeGuard<ShellExePlugin<PE>>(
       "shellCmd",
       "envVars",
     );

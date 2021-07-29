@@ -13,6 +13,7 @@ export const custom:
     // deno-lint-ignore require-await
     activate: async (ac) => {
       custom.activateCountState++;
+      ac.supplier.pluginsGraph.addNode(custom.graphNode);
       return { context: ac, registration: ac.vpr };
     },
     // deno-lint-ignore require-await
@@ -28,10 +29,6 @@ export const custom:
       graphNodeName,
     },
     graphNode: new cxg.Node(graphNodeName),
-    registerNode: (graph) => {
-      graph.addNode(custom.graphNode);
-      return custom.graphNode;
-    },
   };
 
 // publish a fully constructed plugin

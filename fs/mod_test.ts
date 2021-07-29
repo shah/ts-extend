@@ -5,14 +5,15 @@ import * as mod from "../mod.ts";
 import * as modFS from "./mod.ts";
 import * as testStatic from "./test/static.ts";
 
+// TODO [AE]: add tests for pluginsGraph dependency management
+
 const testModuleLocalFsPath = path.relative(
   Deno.cwd(),
   path.dirname(import.meta.url).substr("file://".length),
 );
 
 const testShellCmdRegistrarOptions: modFS.ShellFileRegistrarOptions<
-  TestExecutive,
-  mod.PluginContext<TestExecutive>
+  TestExecutive
 > = {
   shellCmdEnhancer: (
     _pc: mod.PluginContext<TestExecutive>,
@@ -76,13 +77,7 @@ export class TestCustomPluginsManager
   }
 
   protected async init(): Promise<void> {
-    const dfspo: modFS.DiscoverFileSystemPluginsOptions<
-      TestExecutive,
-      testGovn.TestPluginContext,
-      testGovn.TestPluginsSupplier,
-      testGovn.TestPluginActivateCtx,
-      testGovn.TestPluginActivateResult
-    > = {
+    const dfspo: modFS.DiscoverFileSystemPluginsOptions<TestExecutive> = {
       discoveryPath: this.discoveryPath,
       globs: this.localFsSources,
       onValidPlugin: (vpr) => {
@@ -93,13 +88,12 @@ export class TestCustomPluginsManager
       },
       shellFileRegistryOptions: testShellCmdRegistrarOptions,
       typeScriptFileRegistryOptions: {
-        executive: this.executive,
-        supplier: this,
         validateModule: mod.registerDenoFunctionModule,
         importModule: (source) => {
           return mod.importCachedModule(source, this.telemetry);
         },
         moduleMetaData: mod.moduleMetaData,
+        activate: mod.typicalDenoModuleActivate,
         telemetry: this.telemetry,
       },
     };
@@ -112,18 +106,14 @@ export class TestCustomPluginsManager
     if (mod.isValidPluginRegistration(staticModule)) {
       dfspo.onValidPlugin(staticModule);
     }
-    await modFS.discoverFileSystemPlugins(dfspo);
+    await modFS.discoverFileSystemPlugins(this.executive, this, dfspo);
   }
 
   async activate(): Promise<void> {
     await this.init();
     for (const vpr of this.validInactivePlugins) {
-      const dmac: mod.DenoModuleActivateContext<
-        TestExecutive,
-        mod.PluginExecutiveContext<TestExecutive>,
-        TestCustomPluginsManager
-      > = {
-        context: { container: this.executive },
+      const dmac: mod.DenoModuleActivateContext<TestExecutive> = {
+        context: { container: this.executive, plugin: vpr.plugin },
         supplier: this,
         vpr,
       };
@@ -131,14 +121,12 @@ export class TestCustomPluginsManager
         const activatedPR = await dmac.vpr.plugin.activate(dmac);
         if (mod.isValidPluginRegistration(activatedPR.registration)) {
           this.plugins.push(dmac.vpr.plugin);
-          dmac.vpr.plugin.registerNode(this.pluginsGraph);
         } else {
           this.invalidPlugins.push(activatedPR.registration);
         }
       } else {
         // not a typescript module or no activation hook requested, no special activation
         this.plugins.push(dmac.vpr.plugin);
-        dmac.vpr.plugin.registerNode(this.pluginsGraph);
       }
     }
   }

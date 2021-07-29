@@ -11,33 +11,12 @@ export type TestPluginActionResult = mod.ActionResult<
   TestPluginContext
 >;
 
-export interface TestAction extends
-  mod.DenoModulePlugin,
-  mod.Action<
-    modT.TestExecutive,
-    TestPluginContext,
-    TestPluginActionResult
-  > {
+export interface TestAction
+  extends mod.DenoModulePlugin, mod.Action<modT.TestExecutive> {
 }
 
-export type TestPluginActivateCtx = mod.DenoModuleActivateContext<
-  modT.TestExecutive,
-  TestPluginContext,
-  TestPluginsSupplier
->;
-export type TestPluginActivateResult = mod.DenoModuleActivateResult<
-  modT.TestExecutive,
-  TestPluginContext,
-  TestPluginsSupplier,
-  TestPluginActivateCtx
->;
-
 export type TestPluginActivatable = mod.DenoModuleActivatable<
-  modT.TestExecutive,
-  TestPluginContext,
-  TestPluginsSupplier,
-  TestPluginActivateCtx,
-  TestPluginActivateResult
+  modT.TestExecutive
 >;
 
 export interface TestState {

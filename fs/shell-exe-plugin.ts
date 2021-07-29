@@ -3,13 +3,10 @@ import * as fr from "../framework.ts";
 import * as shExtn from "../shell-exe-extn.ts";
 import * as fs from "./file-sys-plugin.ts";
 
-export interface ShellFileRegistrarOptions<
-  PE extends fr.PluginExecutive,
-  PC extends fr.PluginContext<PE>,
-> {
-  readonly envVarsSupplier?: shExtn.ShellCmdEnvVarsSupplier<PE, PC>;
-  readonly shellCmdEnhancer?: shExtn.ShellCmdEnhancer<PE, PC>;
-  readonly runShellCmdOpts?: shExtn.PrepareShellCmdRunOptions<PE, PC>;
+export interface ShellFileRegistrarOptions<PE extends fr.PluginExecutive> {
+  readonly envVarsSupplier?: shExtn.ShellCmdEnvVarsSupplier<PE>;
+  readonly shellCmdEnhancer?: shExtn.ShellCmdEnhancer<PE>;
+  readonly runShellCmdOpts?: shExtn.PrepareShellCmdRunOptions<PE>;
   // TODO: create activePlugin similar to TypeScript
   // readonly activatePlugin: (
   //   dmac: DMAC,
@@ -23,7 +20,7 @@ export function shellFileRegistrarSync<
   PC extends fr.PluginContext<PE>,
   SEAR extends shExtn.ShellExeActionResult<PE, PC>,
 >(
-  options: ShellFileRegistrarOptions<PE, PC>,
+  options: ShellFileRegistrarOptions<PE>,
 ): fr.PluginRegistrarSync {
   const isExecutable = (path: string): false | string[] => {
     const fi = Deno.statSync(path);
@@ -47,18 +44,19 @@ export function shellFileRegistrarSync<
         return result;
       }
       const graphNode = new cxg.Node<fr.Plugin>(source.graphNodeName);
-      const plugin: shExtn.ShellExePlugin<PE, PC, SEAR> & {
+      const plugin: shExtn.ShellExePlugin<PE> & {
         readonly graphNode: cxg.Node<fr.Plugin>;
       } = {
         source,
         nature: { identity: "shell-file-executable" },
         graphNode,
-        registerNode: (graph) => {
-          graph.addNode(graphNode);
-          return graphNode;
-        },
+        // TODO: add activate() to manage graphs
+        // registerNode: (graph) => {
+        //   graph.addNode(graphNode);
+        //   return graphNode;
+        // },
         envVars: options.envVarsSupplier,
-        shellCmd: (pc: PC): string[] => {
+        shellCmd: (pc: fr.PluginContext<PE>): string[] => {
           return options.shellCmdEnhancer
             ? options.shellCmdEnhancer(pc, isExecutableCmd)
             : isExecutableCmd;
@@ -102,11 +100,8 @@ export function shellFileRegistrarSync<
   };
 }
 
-export function shellFileRegistrar<
-  PE extends fr.PluginExecutive,
-  PC extends fr.PluginContext<PE>,
->(
-  options: ShellFileRegistrarOptions<PE, PC>,
+export function shellFileRegistrar<PE extends fr.PluginExecutive>(
+  options: ShellFileRegistrarOptions<PE>,
 ): fr.PluginRegistrar {
   const regSync = shellFileRegistrarSync(options);
 
