@@ -1,6 +1,31 @@
 import { colors, cxg, govnSvcTelemetry as telem, safety } from "./deps.ts";
 import * as fr from "./framework.ts";
-import { Cache, lruCache } from "./cache.ts";
+import { SingletonsManager, SingletonSync } from "./singleton.ts";
+
+declare global {
+  interface Window {
+    readonly cachedModulesSingleton: SingletonSync<Map<URL, ModuleCacheEntry>>;
+    readonly cachedModules: Map<URL, ModuleCacheEntry>;
+  }
+}
+
+export interface ModuleCacheEntry {
+  readonly source: URL;
+  readonly module: unknown;
+}
+
+// cast to override the readonly attribute (it's OK for us to write the value)
+(window.cachedModulesSingleton as SingletonSync<Map<URL, ModuleCacheEntry>>) =
+  SingletonsManager.globalInstance()
+    .singletonSync(
+      () => {
+        return new Map<URL, ModuleCacheEntry>();
+      },
+    );
+
+// cast to override the readonly attribute (it's OK for us to write the value)
+(window.cachedModules as Map<URL, ModuleCacheEntry>) = window
+  .cachedModulesSingleton.value();
 
 export interface DenoModulePlugin extends fr.Plugin {
   readonly module: unknown;
@@ -163,13 +188,6 @@ export function isDenoFunctionModuleActionResult<
   return isDfmaResult(o);
 }
 
-export interface ModuleCacheEntry {
-  readonly source: URL;
-  readonly module: unknown;
-}
-
-const cachedModules: Cache<ModuleCacheEntry> = lruCache();
-
 export async function importUncachedModule(
   src: URL,
   telemetry: TypeScriptRegistrarTelemetry,
@@ -184,14 +202,13 @@ export async function importCachedModule(
   source: URL,
   telemetry: TypeScriptRegistrarTelemetry,
 ): Promise<unknown> {
-  const key = source.toString();
-  let mce = cachedModules[source.toString()];
+  let mce = window.cachedModules.get(source);
   if (!mce) {
     mce = {
       source,
       module: await importUncachedModule(source, telemetry),
     };
-    cachedModules[key] = mce;
+    window.cachedModules.set(source, mce);
   }
   return mce.module;
 }
