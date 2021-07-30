@@ -40,6 +40,7 @@ export interface Singletons {
 }
 
 export interface StatefulSingleton<T> {
+  isActive: boolean;
   readonly identity: SingletonIdentity;
   isValueAssigned: boolean;
   assignedValue?: T;
@@ -50,11 +51,11 @@ export interface StatefulSingleton<T> {
 }
 
 export interface SingletonState<T> extends StatefulSingleton<T> {
-  readonly destroy?: (state: SingletonState<T>) => Promise<void>;
+  readonly destroy: () => Promise<void>;
 }
 
 export interface SingletonStateSync<T> extends StatefulSingleton<T> {
-  readonly destroy?: (state: SingletonStateSync<T>) => void;
+  readonly destroy: () => void;
 }
 
 export class SingletonsManager implements Singletons {
@@ -83,6 +84,7 @@ export class SingletonsManager implements Singletons {
       (`singleton${this.asyncSingletons.length + 1}`);
     const result: Singleton<T> & SingletonState<T> = {
       identity,
+      isActive: true,
       isValueAssigned: false,
       valueAccessedCount: 0,
       lifecycleMetric: metrics.typicalMetric(),
@@ -99,7 +101,17 @@ export class SingletonsManager implements Singletons {
           ? (defaultValue ? await defaultValue(result) : undefined) as T
           : result.assignedValue as T;
       },
-      destroy: options?.destroy,
+      destroy: async () => {
+        if (result.isActive) {
+          result.destructionMetric = metrics.typicalMetric();
+          if (options?.destroy) {
+            await options.destroy(result);
+          }
+          result.destructionMetric.measure();
+          result.lifecycleMetric.measure();
+          result.isActive = false;
+        }
+      },
     };
     this.asyncSingletons.push(result);
     return result;
@@ -116,6 +128,7 @@ export class SingletonsManager implements Singletons {
       (`singletonSync${this.asyncSingletons.length + 1}`);
     const result: SingletonSync<T> & SingletonStateSync<T> = {
       identity,
+      isActive: true,
       isValueAssigned: false,
       valueAccessedCount: 0,
       lifecycleMetric: metrics.typicalMetric(),
@@ -132,7 +145,17 @@ export class SingletonsManager implements Singletons {
           ? (defaultValue ? defaultValue(result) : undefined) as T
           : result.assignedValue as T;
       },
-      destroy: options?.destroy,
+      destroy: () => {
+        if (result.isActive) {
+          result.destructionMetric = metrics.typicalMetric();
+          if (options?.destroy) {
+            options.destroy(result);
+          }
+          result.destructionMetric.measure();
+          result.lifecycleMetric.measure();
+          result.isActive = false;
+        }
+      },
     };
     this.syncSingletons.push(result);
     return result;
@@ -140,33 +163,11 @@ export class SingletonsManager implements Singletons {
 
   async destroy() {
     for (const singleton of this.asyncSingletons) {
-      if (singleton.destroy) {
-        singleton.destructionMetric = metrics.typicalMetric();
-        await singleton.destroy(singleton);
-        singleton.destructionMetric.measure();
-      }
-      // the singleton metric is created at activation and "done" on destroy
-      singleton.lifecycleMetric.measure();
+      await singleton.destroy();
     }
 
     for (const singleton of this.syncSingletons) {
-      if (singleton.destroy) {
-        singleton.destructionMetric = metrics.typicalMetric();
-        singleton.destroy(singleton);
-        singleton.destructionMetric.measure();
-      }
-      // the singleton metric is created at activation and "done" on destroy
-      singleton.lifecycleMetric.measure();
-    }
-  }
-
-  info() {
-    for (const singleton of this.asyncSingletons) {
-      console.dir(singleton);
-    }
-
-    for (const singleton of this.syncSingletons) {
-      console.dir(singleton);
+      singleton.destroy();
     }
   }
 }

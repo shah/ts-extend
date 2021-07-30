@@ -4,6 +4,10 @@ import * as extn from "../mod.ts";
 import * as cp from "./mod.ts";
 import * as testGovn from "./test/governance.ts";
 
+window.addEventListener("unload", async () => {
+  await window.globalSingletons.destroy();
+});
+
 const testModuleLocalFsPath = path.relative(
   Deno.cwd(),
   path.dirname(import.meta.url).substr("file://".length),

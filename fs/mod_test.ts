@@ -5,6 +5,10 @@ import * as mod from "../mod.ts";
 import * as modFS from "./mod.ts";
 import * as testStatic from "./test/static.ts";
 
+window.addEventListener("unload", async () => {
+  await window.globalSingletons.destroy();
+});
+
 // TODO [AE]: add tests for pluginsGraph dependency management
 
 const testModuleLocalFsPath = path.relative(
