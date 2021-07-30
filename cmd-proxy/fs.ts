@@ -1,4 +1,4 @@
-import { cxg, path, shell } from "../deps.ts";
+import { path, shell } from "../deps.ts";
 import * as cp from "./cmd-proxy.ts";
 import * as fr from "../framework.ts";
 import * as tsExtn from "../typescript-extn.ts";
@@ -11,11 +11,8 @@ export interface CommandProxyFileSystemPluginsManagerOptions<
   readonly localFsSources: fsp.FileSystemGlobs;
 }
 
-export class CommandProxyFileSystemPluginsManager<
-  PE extends fr.PluginExecutive,
-  CPPC extends cp.CommandProxyPluginContext<PE>,
-  CPPS extends cp.CommandProxyPluginsSupplier<PE>,
-> extends cp.CommandProxyPluginsManager<PE> {
+export class CommandProxyFileSystemPluginsManager<PE extends fr.PluginExecutive>
+  extends cp.CommandProxyPluginsManager<PE> {
   constructor(
     readonly executive: PE,
     readonly commands: Record<cp.ProxyableCommandText, cp.ProxyableCommand>,
