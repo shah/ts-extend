@@ -67,6 +67,7 @@ export interface PluginsSupplier<PE extends PluginExecutive> {
   readonly plugins: Plugin[];
   readonly pluginsGraph: PluginsGraph;
   readonly activate: (executive: PE) => Promise<void>;
+  readonly deactivate: (executive: PE) => Promise<void>;
 }
 
 export function isPluginsSupplier<PE extends PluginExecutive>(
@@ -132,6 +133,13 @@ export const isPlugin = safety.typeGuard<Plugin>(
   "source",
 );
 
+export enum PluginActivationState {
+  Inactive = 0,
+  Active,
+  Activating,
+  Deactivating,
+}
+
 export interface ActivateContext<
   PE extends PluginExecutive,
   PC extends PluginContext<PE>,
@@ -142,27 +150,44 @@ export interface ActivateContext<
   readonly vpr: ValidPluginRegistration;
 }
 
+export interface DeactivateContext<
+  PE extends PluginExecutive,
+  PC extends PluginContext<PE>,
+  PS extends PluginsSupplier<PE>,
+> {
+  readonly context: PC;
+  readonly supplier: PS;
+}
+
 export interface ActivateResult {
   readonly registration: ValidPluginRegistration | InvalidPluginRegistration;
 }
 
 export interface Activatable<PE extends PluginExecutive> {
+  readonly activationState: PluginActivationState;
   readonly activate: (
     ac: ActivateContext<PE, PluginContext<PE>, PluginsSupplier<PE>>,
   ) => Promise<ActivateResult>;
+  readonly deactivate: (
+    ac: DeactivateContext<PE, PluginContext<PE>, PluginsSupplier<PE>>,
+  ) => Promise<void>;
 }
 
 export interface ActivatableSync<PE extends PluginExecutive> {
+  readonly activationState: PluginActivationState;
   readonly activateSync: (
     ac: ActivateContext<PE, PluginContext<PE>, PluginsSupplier<PE>>,
   ) => ActivateResult;
+  readonly deactivateSync: (
+    ac: DeactivateContext<PE, PluginContext<PE>, PluginsSupplier<PE>>,
+  ) => void;
 }
 
 export function isActivatablePlugin<PE extends PluginExecutive>(
   o: unknown,
 ): o is Plugin & Activatable<PE> {
   if (isPlugin(o)) {
-    return "activate" in o;
+    return "activate" in o && "deactivate" in o;
   }
   return false;
 }
@@ -171,7 +196,7 @@ export function isActivatableSyncPlugin<PE extends PluginExecutive>(
   o: unknown,
 ): o is Plugin & ActivatableSync<PE> {
   if (isPlugin(o)) {
-    return "activateSync" in o;
+    return "activateSync" in o && "deactivateSync" in o;
   }
   return false;
 }

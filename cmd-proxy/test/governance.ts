@@ -21,6 +21,7 @@ export type TestPluginActivatable = mod.DenoModuleActivatable<
 
 export interface TestState {
   activateCountState: number;
+  deactivateCountState: number;
   executeCountState: number;
   readonly graphNode: mod.PluginGraphNode;
 }

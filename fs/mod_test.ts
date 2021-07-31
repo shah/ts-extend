@@ -116,21 +116,66 @@ export class TestCustomPluginsManager
   async activate(): Promise<void> {
     await this.init();
     for (const vpr of this.validInactivePlugins) {
-      const dmac: mod.DenoModuleActivateContext<TestExecutive> = {
+      const ac: mod.ActivateContext<
+        TestExecutive,
+        mod.PluginContext<TestExecutive>,
+        this
+      > = {
         context: { container: this.executive, plugin: vpr.plugin },
         supplier: this,
         vpr,
       };
-      if (mod.isDenoModuleActivatablePlugin(dmac.vpr.plugin)) {
-        const activatedPR = await dmac.vpr.plugin.activate(dmac);
+      if (mod.isActivatablePlugin(ac.vpr.plugin)) {
+        (ac.vpr.plugin.activationState as mod.PluginActivationState) =
+          mod.PluginActivationState.Activating;
+        const activatedPR = await ac.vpr.plugin.activate(ac);
         if (mod.isValidPluginRegistration(activatedPR.registration)) {
-          this.plugins.push(dmac.vpr.plugin);
+          this.plugins.push(ac.vpr.plugin);
         } else {
           this.invalidPlugins.push(activatedPR.registration);
         }
+        (ac.vpr.plugin.activationState as mod.PluginActivationState) =
+          mod.PluginActivationState.Active;
+      } else if (mod.isActivatableSyncPlugin(ac.vpr.plugin)) {
+        (ac.vpr.plugin.activationState as mod.PluginActivationState) =
+          mod.PluginActivationState.Activating;
+        const activatedPR = ac.vpr.plugin.activateSync(ac);
+        if (mod.isValidPluginRegistration(activatedPR.registration)) {
+          this.plugins.push(ac.vpr.plugin);
+        } else {
+          this.invalidPlugins.push(activatedPR.registration);
+        }
+        (ac.vpr.plugin.activationState as mod.PluginActivationState) =
+          mod.PluginActivationState.Active;
       } else {
         // not a typescript module or no activation hook requested, no special activation
-        this.plugins.push(dmac.vpr.plugin);
+        this.plugins.push(ac.vpr.plugin);
+      }
+    }
+  }
+
+  async deactivate(): Promise<void> {
+    for (const plugin of this.plugins) {
+      const dac: mod.DeactivateContext<
+        TestExecutive,
+        mod.PluginContext<TestExecutive>,
+        this
+      > = {
+        context: { container: this.executive, plugin },
+        supplier: this,
+      };
+      if (mod.isActivatablePlugin(plugin)) {
+        (plugin.activationState as mod.PluginActivationState) =
+          mod.PluginActivationState.Deactivating;
+        await plugin.deactivate(dac);
+        (plugin.activationState as mod.PluginActivationState) =
+          mod.PluginActivationState.Inactive;
+      } else if (mod.isActivatableSyncPlugin(plugin)) {
+        (plugin.activationState as mod.PluginActivationState) =
+          mod.PluginActivationState.Activating;
+        plugin.deactivateSync(dac);
+        (plugin.activationState as mod.PluginActivationState) =
+          mod.PluginActivationState.Inactive;
       }
     }
   }
@@ -197,9 +242,15 @@ Deno.test(`File system plugins discovery with custom plugins manager`, async () 
   ta.assert(mod.isDenoModulePlugin(tsConstructedPlugin));
   ta.assert(testGovn.isTestState(tsConstructedPlugin));
   ta.assert(tsConstructedPlugin.activateCountState == 1);
+  ta.assert(tsConstructedPlugin.deactivateCountState == 0);
 
   const staticPlugin = pluginsMgr.pluginByAbbrevName("static");
   ta.assert(mod.isDenoModulePlugin(staticPlugin));
   ta.assert(testGovn.isTestState(staticPlugin));
   ta.assert(staticPlugin.activateCountState == 1);
+  ta.assert(staticPlugin.deactivateCountState == 0);
+
+  await pluginsMgr.deactivate();
+  ta.assert(staticPlugin.deactivateCountState > 0);
+  ta.assert(tsConstructedPlugin.deactivateCountState > 0);
 });

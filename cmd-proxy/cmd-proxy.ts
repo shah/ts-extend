@@ -120,7 +120,7 @@ export class CommandProxyPluginsManager<PE extends fr.PluginExecutive>
   async activate(): Promise<void> {
     await this.init();
     for (const vpr of this.validInactivePlugins) {
-      const dmac: fr.ActivateContext<
+      const ac: fr.ActivateContext<
         PE,
         fr.PluginContext<PE>,
         fr.PluginsSupplier<PE>
@@ -129,20 +129,57 @@ export class CommandProxyPluginsManager<PE extends fr.PluginExecutive>
         supplier: this,
         vpr,
       };
-      if (
-        tsExtn.isDenoModuleActivatablePlugin<PE>(
-          dmac.vpr.plugin,
-        )
-      ) {
-        const activatedPR = await dmac.vpr.plugin.activate(dmac);
+      if (fr.isActivatablePlugin<PE>(ac.vpr.plugin)) {
+        (ac.vpr.plugin.activationState as fr.PluginActivationState) =
+          fr.PluginActivationState.Activating;
+        const activatedPR = await ac.vpr.plugin.activate(ac);
         if (fr.isValidPluginRegistration(activatedPR.registration)) {
-          this.plugins.push(dmac.vpr.plugin);
+          this.plugins.push(ac.vpr.plugin);
         } else {
           this.handleInvalidPlugin(activatedPR.registration);
         }
+        (ac.vpr.plugin.activationState as fr.PluginActivationState) =
+          fr.PluginActivationState.Active;
+      } else if (fr.isActivatableSyncPlugin<PE>(ac.vpr.plugin)) {
+        (ac.vpr.plugin.activationState as fr.PluginActivationState) =
+          fr.PluginActivationState.Activating;
+        const activatedPR = ac.vpr.plugin.activateSync(ac);
+        if (fr.isValidPluginRegistration(activatedPR.registration)) {
+          this.plugins.push(ac.vpr.plugin);
+        } else {
+          this.handleInvalidPlugin(activatedPR.registration);
+        }
+        (ac.vpr.plugin.activationState as fr.PluginActivationState) =
+          fr.PluginActivationState.Active;
       } else {
         // not a typescript module or no activation hook requested, no special activation
-        this.plugins.push(dmac.vpr.plugin);
+        this.plugins.push(ac.vpr.plugin);
+      }
+    }
+  }
+
+  async deactivate(): Promise<void> {
+    for (const plugin of this.plugins) {
+      const dac: fr.DeactivateContext<
+        PE,
+        fr.PluginContext<PE>,
+        this
+      > = {
+        context: { container: this.executive, plugin },
+        supplier: this,
+      };
+      if (fr.isActivatablePlugin(plugin)) {
+        (plugin.activationState as fr.PluginActivationState) =
+          fr.PluginActivationState.Deactivating;
+        await plugin.deactivate(dac);
+        (plugin.activationState as fr.PluginActivationState) =
+          fr.PluginActivationState.Inactive;
+      } else if (fr.isActivatableSyncPlugin(plugin)) {
+        (plugin.activationState as fr.PluginActivationState) =
+          fr.PluginActivationState.Activating;
+        plugin.deactivateSync(dac);
+        (plugin.activationState as fr.PluginActivationState) =
+          fr.PluginActivationState.Inactive;
       }
     }
   }

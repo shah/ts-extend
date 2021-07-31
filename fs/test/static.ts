@@ -8,13 +8,19 @@ export const custom:
   & govn.TestPluginActivatable
   & govn.TestState = {
     module: this,
+    activationState: 0,
     activateCountState: 0,
+    deactivateCountState: 0,
     executeCountState: 0,
     // deno-lint-ignore require-await
     activate: async (ac) => {
       custom.activateCountState++;
       ac.supplier.pluginsGraph.addNode(custom.graphNode);
       return { context: ac, registration: ac.vpr };
+    },
+    // deno-lint-ignore require-await
+    deactivate: async () => {
+      custom.deactivateCountState++;
     },
     // deno-lint-ignore require-await
     execute: async (context) => {
