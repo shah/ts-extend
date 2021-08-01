@@ -127,6 +127,7 @@ export interface TypeScriptModuleRegistrationSupplier<
     manager: PM,
     potential: DenoModulePlugin,
     metaData: DenoModuleMetaData<PM>,
+    options?: fr.PluginRegistrationOptions,
   ): Promise<fr.ValidPluginRegistration | fr.InvalidPluginRegistration>;
 }
 
@@ -226,10 +227,12 @@ export async function registerDenoFunctionModule<PM extends fr.PluginsManager>(
   _manager: PM,
   potential: DenoModulePlugin,
   metaData: DenoModuleMetaData<PM>,
+  options?: fr.PluginRegistrationOptions,
 ): Promise<fr.ValidPluginRegistration | fr.InvalidPluginRegistration> {
   // deno-lint-ignore no-explicit-any
   const module = potential.module as any;
   const moduleDefault = module.default;
+  let guardFailed = false;
 
   // if we've already created a valid plugin (e.g. from cache)
   if (fr.isValidPluginRegistration(moduleDefault)) {
@@ -260,11 +263,14 @@ export async function registerDenoFunctionModule<PM extends fr.PluginsManager>(
       isGenerator,
       metaData,
     };
-    const result: fr.ValidPluginRegistration = {
-      source: potential.source,
-      plugin,
-    };
-    return result;
+    if (!options?.guard || options.guard(plugin)) {
+      const result: fr.ValidPluginRegistration = {
+        source: potential.source,
+        plugin,
+      };
+      return result;
+    }
+    guardFailed = true;
   }
 
   const result: fr.InvalidPluginRegistration = {
@@ -272,9 +278,11 @@ export async function registerDenoFunctionModule<PM extends fr.PluginsManager>(
     issues: [{
       source: potential.source,
       diagnostics: [
-        `invalid plugin: typeof 'default' is ${
-          colors.yellow(typeof moduleDefault)
-        } (expected function, DenoFunctionModulePlugin, or ValidPluginRegistration instance)`,
+        guardFailed
+          ? `invalid plugin: guard failed after construction`
+          : `invalid plugin: typeof 'default' is ${
+            colors.yellow(typeof moduleDefault)
+          } (expected function, DenoFunctionModulePlugin, or ValidPluginRegistration instance)`,
       ],
     }],
   };

@@ -27,7 +27,7 @@ export class TypeScriptFileRegistrar<PM extends extn.PluginsManager>
       src: extn.PluginSource,
       suggested?: extn.InvalidPluginRegistration,
     ) => Promise<extn.PluginRegistration>,
-    nature?: (suggested: extn.PluginNature) => extn.PluginNature,
+    options?: extn.PluginRegistrationOptions,
   ): Promise<extn.PluginRegistration> {
     if (fs.isFileSystemPluginSource(originalSource)) {
       try {
@@ -53,7 +53,9 @@ export class TypeScriptFileRegistrar<PM extends extn.PluginsManager>
             module,
             source,
             graphNode,
-            nature: nature ? nature(defaultNature) : defaultNature,
+            nature: options?.nature
+              ? options.nature(defaultNature)
+              : defaultNature,
           };
           return await this.tsro.validateModule(
             this.manager,

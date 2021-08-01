@@ -39,7 +39,7 @@ export class ShellFileRegistrar<PM extends extn.PluginsManager>
       src: extn.PluginSource,
       suggested?: extn.InvalidPluginRegistration,
     ) => Promise<extn.PluginRegistration>,
-    nature?: (suggested: extn.PluginNature) => extn.PluginNature,
+    options?: extn.PluginRegistrationOptions,
   ): Promise<extn.PluginRegistration> {
     if (fs.isFileSystemPluginSource(source)) {
       const isExecutableCmd = this.isExecutable(source.absPathAndFileName);
@@ -55,7 +55,7 @@ export class ShellFileRegistrar<PM extends extn.PluginsManager>
       const defaultNature = { identity: "shell-file-executable" };
       const plugin: extn.ShellExePlugin = {
         source,
-        nature: nature ? nature(defaultNature) : defaultNature,
+        nature: options?.nature ? options.nature(defaultNature) : defaultNature,
         execute: async (seac) => {
           const pc: extn.ShellExePluginSupplier = {
             plugin,

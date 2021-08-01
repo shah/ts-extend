@@ -50,6 +50,11 @@ export interface PluginRegistrarSourceApplicability {
   readonly alternateRegistrar?: PluginRegistrar;
 }
 
+export interface PluginRegistrationOptions {
+  readonly nature?: (suggested: PluginNature) => PluginNature;
+  readonly guard?: <P extends Plugin>(o: unknown) => o is P;
+}
+
 export interface PluginRegistrar {
   readonly pluginApplicability: (
     src: PluginSource,
@@ -60,7 +65,7 @@ export interface PluginRegistrar {
       src: PluginSource,
       suggested?: InvalidPluginRegistration,
     ) => Promise<PluginRegistration>,
-    nature?: (suggested: PluginNature) => PluginNature,
+    options?: PluginRegistrationOptions,
   ) => Promise<PluginRegistration>;
 }
 

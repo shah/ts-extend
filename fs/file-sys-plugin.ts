@@ -63,7 +63,7 @@ export class FileSourcePluginRegistrar<PM extends extn.PluginsManager>
       src: extn.PluginSource,
       suggested?: extn.InvalidPluginRegistration,
     ) => Promise<extn.PluginRegistration>,
-    nature?: (suggested: extn.PluginNature) => extn.PluginNature,
+    options?: extn.PluginRegistrationOptions,
   ): Promise<extn.PluginRegistration> {
     const pa = await this.pluginApplicability(source);
     if (pa.isApplicable) {
@@ -71,7 +71,7 @@ export class FileSourcePluginRegistrar<PM extends extn.PluginsManager>
         return await pa.alternateRegistrar.pluginRegistration(
           pa.redirectSource || source,
           onInvalid,
-          nature,
+          options,
         );
       } else {
         const invalid: extn.InvalidPluginRegistration = {
@@ -92,9 +92,9 @@ export class FileSourcePluginRegistrar<PM extends extn.PluginsManager>
   }
 }
 
-export interface DiscoverFileSystemRouteGlob {
+export interface DiscoverFileSystemRouteGlob
+  extends extn.PluginRegistrationOptions {
   readonly glob: FileSystemGlob;
-  readonly nature?: (suggested: extn.PluginNature) => extn.PluginNature;
 }
 
 export interface DiscoverFileSystemRoute {
@@ -162,7 +162,7 @@ export class FileSystemRoutesPlugins implements extn.InactivePluginsSupplier {
                     }],
                   };
                 },
-                glob.nature,
+                glob,
               );
               if (registration) {
                 if (extn.isValidPluginRegistration(registration)) {
