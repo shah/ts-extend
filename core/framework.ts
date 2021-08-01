@@ -326,4 +326,19 @@ export abstract class TypicalPluginsManager implements PluginsManager {
       if (ctx.afterDeactivate) await ctx.afterDeactivate(dac);
     }
   }
+
+  findPlugin<P extends Plugin>(
+    predicate: (plugin: Plugin, index: number, plugins: Plugin[]) => unknown,
+    guard?: safety.TypeGuard<P>,
+    onGuardFail?: (plugin: Plugin) => void,
+  ): P | undefined {
+    const plugin = this.plugins.find(predicate);
+    if (plugin && guard) {
+      if (guard(plugin)) return plugin;
+      if (onGuardFail) onGuardFail(plugin);
+    } else if (plugin) {
+      return plugin as P;
+    }
+    return undefined;
+  }
 }

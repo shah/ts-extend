@@ -71,17 +71,13 @@ export class TestCustomPluginsManager extends extn.TypicalPluginsManager
     guard?: safety.TypeGuard<P>,
     expected?: string,
   ): P | undefined {
-    const plugin = this.plugins.find((p) => p.source.abbreviatedName == name);
-    if (plugin && guard) {
-      ta.assert(
-        guard(plugin),
-        `Plugin '${name}' failed guard: ${expected}`,
-      );
-      return plugin;
-    } else if (plugin) {
-      return plugin as P;
-    }
-    return undefined;
+    return this.findPlugin(
+      (p) => p.source.abbreviatedName == name,
+      guard,
+      () => {
+        ta.assert(true, `Plugin '${name}' failed guard: ${expected}`);
+      },
+    );
   }
 
   denoFunctionPluginByAbbrevName(
