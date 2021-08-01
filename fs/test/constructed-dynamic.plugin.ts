@@ -1,12 +1,16 @@
 import { cxg, extn } from "../deps.ts";
 import * as govn from "./governance.ts";
 
+export const scalarValue =
+  "this is the default value, which can be different from the plugin";
+
 export const plugin: extn.DenoModuleDynamicPluginSupplier<extn.PluginsManager> =
   // deno-lint-ignore require-await
-  async (moduleEntryPoint) => {
+  async (moduleEntryPoint, nature) => {
     const graphNodeName = "pre-constructed dynamic system ID";
     const potential:
       & govn.TestPlugin
+      & extn.DenoScalarModulePlugin<string>
       & govn.TestActionSupplier
       & govn.TestPluginActivatable
       & extn.PluginGraphContributor
@@ -43,7 +47,7 @@ export const plugin: extn.DenoModuleDynamicPluginSupplier<extn.PluginsManager> =
         execute: async () => {
           potential.executeCountState++;
         },
-        nature: { identity: "deno-dynamic" },
+        nature: { ...nature, identity: "deno-dynamic" },
         source: {
           systemID: "pre-constructed dynamic system ID",
           abbreviatedName: "constructed dynamic",
@@ -51,6 +55,7 @@ export const plugin: extn.DenoModuleDynamicPluginSupplier<extn.PluginsManager> =
           graphNodeName,
         },
         graphNode: new cxg.Node(graphNodeName),
+        scalar: scalarValue,
       };
     const result: extn.ValidPluginRegistration = {
       plugin: potential,
@@ -60,4 +65,4 @@ export const plugin: extn.DenoModuleDynamicPluginSupplier<extn.PluginsManager> =
   };
 
 // since we constructed our own plugin we can provide any default
-export default "this is the default value, which can be different from the plugin";
+export default scalarValue;

@@ -24,7 +24,10 @@ export class DenoModuleFileRegistrar<PM extends extn.PluginsManager>
     source: extn.PluginSource,
   ): Promise<extn.PluginRegistrarSourceApplicability> {
     if (fs.isFileSystemPluginSource(source)) {
-      if (path.extname(source.absPathAndFileName) == ".ts") {
+      if (
+        source.fileNameExtension.endsWith(".ts") ||
+        source.fileNameExtension.endsWith(".js")
+      ) {
         return { isApplicable: true };
       }
     }

@@ -82,11 +82,21 @@ export class TestCustomPluginsManager extends extn.TypicalPluginsManager
 
   denoFunctionPluginByAbbrevName(
     name: string,
-  ): extn.DenoFunctionModulePlugin<this> | undefined {
-    return this.pluginByAbbrevName<extn.DenoFunctionModulePlugin<this>>(
+  ): extn.DenoFunctionModulePlugin | undefined {
+    return this.pluginByAbbrevName<extn.DenoFunctionModulePlugin>(
       name,
       extn.isDenoFunctionModulePlugin,
       "isDenoFunctionModulePlugin",
+    );
+  }
+
+  denoScalarPluginByAbbrevName<T>(
+    name: string,
+  ): extn.DenoScalarModulePlugin<T> | undefined {
+    return this.pluginByAbbrevName<extn.DenoScalarModulePlugin<T>>(
+      name,
+      extn.isDenoScalarModulePlugin,
+      "isDenoScalarModulePlugin",
     );
   }
 
@@ -249,10 +259,14 @@ Deno.test(`CustomPluginsManager module activation and deactivation`, async () =>
   ta.assert(tsConstructedPlugin.activateCountState == 1);
   ta.assert(tsConstructedPlugin.deactivateCountState == 0);
 
-  const tsDynamicPlugin = pluginsMgr.denoModulePluginByAbbrevName(
+  const tsDynamicPlugin = pluginsMgr.denoScalarPluginByAbbrevName<string>(
     "constructed dynamic",
   );
-  ta.assert(extn.isDenoModulePlugin(tsDynamicPlugin));
+  ta.assert(extn.isDenoScalarModulePlugin(tsDynamicPlugin));
+  ta.assertEquals(
+    tsDynamicPlugin.scalar,
+    "this is the default value, which can be different from the plugin",
+  );
   ta.assert(testGovn.isTestState(tsDynamicPlugin));
   ta.assert(tsDynamicPlugin.activateCountState == 1);
   ta.assert(tsDynamicPlugin.deactivateCountState == 0);
@@ -265,9 +279,12 @@ Deno.test(`CustomPluginsManager module activation and deactivation`, async () =>
   ta.assert(staticPlugin.deactivateCountState == 0);
 
   await pluginsMgr.deactivate({});
+  ta.assert(tsConstructedPlugin.deactivateCountState > 0);
+  ta.assert(tsConstructedPlugin.deactivateGraphCountState > 0);
   ta.assert(staticPlugin.deactivateCountState > 0);
   ta.assert(staticPlugin.deactivateGraphCountState > 0);
-  ta.assert(tsConstructedPlugin.deactivateCountState > 0);
+  ta.assert(tsDynamicPlugin.deactivateCountState > 0);
+  ta.assert(tsDynamicPlugin.deactivateGraphCountState > 0);
 });
 
 Deno.test(`CustomPluginsManager plugins are graphed`, () => {

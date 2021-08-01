@@ -23,6 +23,18 @@ export const isDenoModulePluginSource = safety.typeGuard<
   "moduleEntryPoint",
 );
 
+export interface DenoModulePluginNature<PM extends fr.PluginsManager>
+  extends fr.PluginNature {
+  readonly moduleMetaData: DenoModuleMetaData<PM>;
+}
+
+export const isDenoModulePluginNature = safety.typeGuard<
+  DenoModulePluginNature<fr.PluginsManager>
+>(
+  "identity",
+  "moduleMetaData",
+);
+
 export interface ModuleCacheEntry {
   readonly source: URL;
   readonly module: unknown;
@@ -117,11 +129,20 @@ export function isDenoModuleActivatableSyncPlugin<PM extends fr.PluginsManager>(
 export interface DenoModuleDynamicPluginSupplier<PM extends fr.PluginsManager> {
   (
     moduleEntryPoint: unknown,
+    nature: DenoModulePluginNature<PM>,
     registrar: DenoModuleRegistrar<PM>,
-    metaData: DenoModuleMetaData<PM>,
     options?: fr.PluginRegistrationOptions,
   ): Promise<fr.PluginRegistration>;
 }
+
+export interface DenoModuleScalarValueGuard<T> {
+  readonly guard: (o: unknown) => o is T;
+  readonly guardFailureDiagnostic: (o: unknown) => string;
+}
+
+export const isDenoModuleScalarValueGuard = safety.typeGuard<
+  DenoModuleScalarValueGuard<unknown>
+>("guard", "guardFailureDiagnostic");
 
 /**
  * DenoModuleMetaData represents Plugin information defined as constants in
@@ -141,6 +162,7 @@ export interface DenoModuleMetaData<PM extends fr.PluginsManager> {
     ac: DenoModuleActivateContext<PM>,
   ) => DenoModuleActivateResult;
   plugin?: DenoModuleDynamicPluginSupplier<PM>;
+  scalarGuard?: DenoModuleScalarValueGuard<unknown>;
   untyped: Record<string, unknown>;
 }
 
@@ -155,12 +177,10 @@ export interface TypeScriptModuleRegistrationSupplier<
   ): Promise<fr.ValidPluginRegistration | fr.InvalidPluginRegistration>;
 }
 
-export interface DenoFunctionModulePlugin<PM extends fr.PluginsManager>
-  extends DenoModulePlugin {
+export interface DenoFunctionModulePlugin extends DenoModulePlugin {
   readonly handler: DenoFunctionModuleHandler;
   readonly isAsync: boolean;
   readonly isGenerator: boolean;
-  readonly metaData: DenoModuleMetaData<PM>;
 }
 
 export function isGeneratorFunction(o: unknown) {
@@ -172,9 +192,9 @@ export function isGeneratorFunction(o: unknown) {
   return (name === "GeneratorFunction" || name === "AsyncGeneratorFunction");
 }
 
-export function isDenoFunctionModulePlugin<PM extends fr.PluginsManager>(
+export function isDenoFunctionModulePlugin(
   o: unknown,
-): o is DenoFunctionModulePlugin<PM> {
+): o is DenoFunctionModulePlugin {
   if (isDenoModulePlugin(o)) {
     return "handler" in o && "isAsync" in o && "isGenerator" in o;
   }
@@ -207,6 +227,19 @@ export const isDenoFunctionModuleActionResult = safety.typeGuard<
   DenoFunctionModuleActionResult
 >("dfmhResult");
 
+export interface DenoScalarModulePlugin<T> extends DenoModulePlugin {
+  readonly scalar: T;
+}
+
+export function isDenoScalarModulePlugin<T>(
+  o: unknown,
+): o is DenoScalarModulePlugin<T> {
+  if (isDenoModulePlugin(o)) {
+    return "scalar" in o;
+  }
+  return false;
+}
+
 export interface ImportModuleTelemetrySupplier {
   readonly import: (source: URL) => telem.Instrumentable;
 }
@@ -234,74 +267,6 @@ export async function importCachedModule(
     window.cachedModules.set(source, mce);
   }
   return mce.module;
-}
-
-// deno-lint-ignore require-await
-export async function validateDenoFunctionModule<PM extends fr.PluginsManager>(
-  _manager: PM,
-  potential: DenoModulePlugin,
-  metaData: DenoModuleMetaData<PM>,
-  options?: fr.PluginRegistrationOptions,
-): Promise<fr.ValidPluginRegistration | fr.InvalidPluginRegistration> {
-  // deno-lint-ignore no-explicit-any
-  const module = potential.module as any;
-  const moduleDefault = module.default;
-  let guardFailedDiagnostic: string | undefined;
-
-  // if we've already created a valid plugin (e.g. from cache)
-  if (fr.isValidPluginRegistration(moduleDefault)) {
-    return moduleDefault;
-  }
-
-  // if an entire plugin is pre-constructed
-  if (isDenoModulePlugin(moduleDefault)) {
-    const result: fr.ValidPluginRegistration = {
-      plugin: moduleDefault,
-      source: moduleDefault.source,
-    };
-    return result;
-  }
-
-  // not cached or pre-constructed, see if it's a function
-  if (typeof moduleDefault === "function") {
-    const handler = moduleDefault as DenoFunctionModuleHandler;
-    const handlerConstrName = handler.constructor.name;
-    const isGenerator = (handlerConstrName === "GeneratorFunction" ||
-      handlerConstrName === "AsyncGeneratorFunction");
-    const isAsync = handlerConstrName === "AsyncFunction" ||
-      handlerConstrName === "AsyncGeneratorFunction";
-    const plugin: DenoFunctionModulePlugin<PM> = {
-      ...potential,
-      handler,
-      isAsync,
-      isGenerator,
-      metaData,
-    };
-    if (!options?.guard || options.guard.guard(plugin)) {
-      const result: fr.ValidPluginRegistration = {
-        source: potential.source,
-        plugin,
-      };
-      return result;
-    }
-    // if we get to here it means we have a guard and it failed
-    guardFailedDiagnostic = options.guard.guardFailureDiagnostic(plugin);
-  }
-
-  const result: fr.InvalidPluginRegistration = {
-    source: potential.source,
-    issues: [{
-      source: potential.source,
-      diagnostics: [
-        guardFailedDiagnostic
-          ? `guard failure: ${colors.yellow(guardFailedDiagnostic)}`
-          : `typeof 'default' is ${
-            colors.yellow(typeof moduleDefault)
-          } (expected function, DenoFunctionModulePlugin, or ValidPluginRegistration instance)`,
-      ],
-    }],
-  };
-  return result;
 }
 
 export class TypicalDenoModuleRegistrarTelemetry
@@ -401,7 +366,12 @@ export class DenoModuleRegistrar<PM extends fr.PluginsManager>
         continue;
       }
 
-      if (key === "nature" && fr.isPluginNature(value)) result.nature = value;
+      if (key === "nature" && isDenoModulePluginNature(value)) {
+        result.nature = value;
+      }
+      if (key === "scalarGuard" && isDenoModuleScalarValueGuard(value)) {
+        result.scalarGuard = value as DenoModuleScalarValueGuard<unknown>;
+      }
 
       if (typeof value === "function") {
         switch (key) {
@@ -437,10 +407,20 @@ export class DenoModuleRegistrar<PM extends fr.PluginsManager>
     return result;
   }
 
+  moduleNature(
+    metaData: DenoModuleMetaData<PM>,
+    identity?: fr.PluginNatureIdentity,
+  ): DenoModulePluginNature<PM> {
+    return {
+      identity: identity || "deno-module",
+      ...metaData.nature,
+      moduleMetaData: metaData,
+    };
+  }
+
   // deno-lint-ignore require-await
   async validate(
     potential: DenoModulePlugin,
-    metaData: DenoModuleMetaData<PM>,
     options?: fr.PluginRegistrationOptions,
   ): Promise<fr.ValidPluginRegistration | fr.InvalidPluginRegistration> {
     // deno-lint-ignore no-explicit-any
@@ -470,12 +450,26 @@ export class DenoModuleRegistrar<PM extends fr.PluginsManager>
         handlerConstrName === "AsyncGeneratorFunction");
       const isAsync = handlerConstrName === "AsyncFunction" ||
         handlerConstrName === "AsyncGeneratorFunction";
-      const plugin: DenoFunctionModulePlugin<PM> = {
+      const plugin: DenoFunctionModulePlugin = {
         ...potential,
         handler,
         isAsync,
         isGenerator,
-        metaData,
+      };
+      if (!options?.guard || options.guard.guard(plugin)) {
+        const result: fr.ValidPluginRegistration = {
+          source: potential.source,
+          plugin,
+        };
+        return result;
+      }
+      // if we get to here it means we have a guard and it failed
+      guardFailedDiagnostic = options.guard.guardFailureDiagnostic(plugin);
+    } else {
+      // deno-lint-ignore no-explicit-any
+      const plugin: DenoScalarModulePlugin<any> = {
+        ...potential,
+        scalar: moduleDefault,
       };
       if (!options?.guard || options.guard.guard(plugin)) {
         const result: fr.ValidPluginRegistration = {
@@ -492,13 +486,7 @@ export class DenoModuleRegistrar<PM extends fr.PluginsManager>
       source: potential.source,
       issues: [{
         source: potential.source,
-        diagnostics: [
-          guardFailedDiagnostic
-            ? `guard failure: ${colors.yellow(guardFailedDiagnostic)}`
-            : `typeof 'default' is ${
-              colors.yellow(typeof moduleDefault)
-            } (expected function, DenoFunctionModulePlugin, or ValidPluginRegistration instance)`,
-        ],
+        diagnostics: [`guard failure: ${colors.yellow(guardFailedDiagnostic)}`],
       }],
     };
     return result;
@@ -528,24 +516,23 @@ export class DenoModuleRegistrar<PM extends fr.PluginsManager>
       try {
         if (dms.moduleEntryPoint) {
           const metaData = this.moduleMetaData(dms.moduleEntryPoint);
+          const defaultNature: DenoModulePluginNature<PM> = this.moduleNature(
+            metaData,
+          );
           let registration: fr.PluginRegistration;
           if (metaData.plugin) {
             // a deno module can provide an exported async module method called
             // plugin() which returns a registration record dynamically
             registration = await metaData.plugin(
               dms.moduleEntryPoint,
+              defaultNature,
               this,
-              metaData,
               options,
             );
           } else {
             const source: DenoModulePluginSource = {
               ...dms,
               ...metaData.source,
-            };
-            const defaultNature = {
-              identity: "deno-module",
-              ...metaData.nature,
             };
             const nature = options?.nature
               ? options.nature(defaultNature)
@@ -569,7 +556,7 @@ export class DenoModuleRegistrar<PM extends fr.PluginsManager>
                   return graphNode;
                 },
               };
-            registration = await this.validate(potential, metaData);
+            registration = await this.validate(potential);
           }
           if (
             options?.transform && fr.isValidPluginRegistration(registration)
