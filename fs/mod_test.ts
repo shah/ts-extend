@@ -121,7 +121,7 @@ Deno.test(`CustomPluginsManager should not have any invalid plugins`, () => {
   const pluginsMgr = window.testPluginsManager;
   const invalidCount = pluginsMgr.invalidPlugins.length;
   if (invalidCount > 0) {
-    console.log("==========================================================");
+    console.log("\n==========================================================");
     console.log(`${invalidCount} Invalid Plugins (investigate why)`);
     console.log("==========================================================");
     for (const ip of pluginsMgr.invalidPlugins) {
@@ -136,7 +136,7 @@ Deno.test(`CustomPluginsManager should not have any invalid plugins`, () => {
 Deno.test(`CustomPluginsManager discovered proper number of plugins`, () => {
   const pluginsMgr = window.testPluginsManager;
   ta.assertEquals(pluginsMgr.invalidPlugins.length, 0);
-  ta.assertEquals(pluginsMgr.plugins.length, 7);
+  ta.assertEquals(pluginsMgr.plugins.length, 8);
 });
 
 Deno.test(`CustomPluginsManager shell plugins`, async () => {
@@ -234,6 +234,7 @@ Deno.test(`CustomPluginsManager Deno module plugins (TODO)`, () => {
   ta.assert(tsSyncGenPlugin.isGenerator);
 
   ta.assert(pluginsMgr.denoModulePluginByAbbrevName("constructed"));
+  ta.assert(pluginsMgr.denoModulePluginByAbbrevName("constructed dynamic"));
   ta.assert(pluginsMgr.denoModulePluginByAbbrevName("static"));
 });
 
@@ -247,6 +248,14 @@ Deno.test(`CustomPluginsManager module activation and deactivation`, async () =>
   ta.assert(testGovn.isTestState(tsConstructedPlugin));
   ta.assert(tsConstructedPlugin.activateCountState == 1);
   ta.assert(tsConstructedPlugin.deactivateCountState == 0);
+
+  const tsDynamicPlugin = pluginsMgr.denoModulePluginByAbbrevName(
+    "constructed dynamic",
+  );
+  ta.assert(extn.isDenoModulePlugin(tsDynamicPlugin));
+  ta.assert(testGovn.isTestState(tsDynamicPlugin));
+  ta.assert(tsDynamicPlugin.activateCountState == 1);
+  ta.assert(tsDynamicPlugin.deactivateCountState == 0);
 
   const staticPlugin = pluginsMgr.pluginByAbbrevName("static");
   ta.assert(extn.isDenoModulePlugin(staticPlugin));
@@ -263,10 +272,10 @@ Deno.test(`CustomPluginsManager module activation and deactivation`, async () =>
 
 Deno.test(`CustomPluginsManager plugins are graphed`, () => {
   const pluginsMgr = window.testPluginsManager;
-  ta.assertEquals(pluginsMgr.pluginsGraph.overallTopNodes().length, 7);
+  ta.assertEquals(pluginsMgr.pluginsGraph.overallTopNodes().length, 8);
 });
 
 Deno.test(`CustomPluginsManager plugins are instrumented`, () => {
   const pluginsMgr = window.testPluginsManager;
-  ta.assertEquals(pluginsMgr.telemetry.instruments.length, 6);
+  ta.assertEquals(pluginsMgr.telemetry.instruments.length, 7);
 });

@@ -114,6 +114,15 @@ export function isDenoModuleActivatableSyncPlugin<PM extends fr.PluginsManager>(
   return false;
 }
 
+export interface DenoModuleDynamicPluginSupplier<PM extends fr.PluginsManager> {
+  (
+    moduleEntryPoint: unknown,
+    registrar: DenoModuleRegistrar<PM>,
+    metaData: DenoModuleMetaData<PM>,
+    options?: fr.PluginRegistrationOptions,
+  ): Promise<fr.PluginRegistration>;
+}
+
 /**
  * DenoModuleMetaData represents Plugin information defined as constants in
  * a Deno module. Plugin details defined in this interface may be overridden
@@ -122,7 +131,7 @@ export function isDenoModuleActivatableSyncPlugin<PM extends fr.PluginsManager>(
 export interface DenoModuleMetaData<PM extends fr.PluginsManager> {
   nature: fr.MutableOptionalPluginNature;
   source: fr.MutableOptionalPluginSource;
-  constructGraphNode?: (
+  graphNode?: (
     metaData: DenoModuleMetaData<PM>,
   ) => fr.PluginGraphNode;
   activate?: (
@@ -131,6 +140,7 @@ export interface DenoModuleMetaData<PM extends fr.PluginsManager> {
   activateSync?: (
     ac: DenoModuleActivateContext<PM>,
   ) => DenoModuleActivateResult;
+  plugin?: DenoModuleDynamicPluginSupplier<PM>;
   untyped: Record<string, unknown>;
 }
 
@@ -314,74 +324,6 @@ export class TypicalDenoModuleRegistrarTelemetry
   }
 }
 
-export function moduleMetaData<PM extends fr.PluginsManager>(
-  module: unknown,
-): DenoModuleMetaData<PM> {
-  const result: DenoModuleMetaData<PM> = {
-    nature: {},
-    source: {},
-    untyped: {},
-  };
-  for (const entry of Object.entries(module as Record<string, unknown>)) {
-    const [key, value] = entry;
-    result.untyped[key] = value;
-    if (typeof value === "string") {
-      switch (key) {
-        case "systemID":
-          // if module has `export const systemID = "X"` then use that as the graphName
-          result.source.systemID = value;
-          break;
-
-        case "friendlyName":
-          // if module has `export const friendlyName = "X"` then use that as the graphName
-          result.source.friendlyName = value;
-          break;
-
-        case "abbreviatedName":
-          // if module has `export const abbreviatedName = "X"` then use that as the graphName
-          result.source.abbreviatedName = value;
-          break;
-
-        case "graphNodeName":
-          // if module has `export const graphNodeName = "X"` then use that as the graphName
-          result.source.graphNodeName = value;
-          break;
-      }
-
-      continue;
-    }
-
-    if (key === "nature" && fr.isPluginNature(value)) result.nature = value;
-
-    if (typeof value === "function") {
-      switch (key) {
-        case "constructGraphNode":
-          // TODO: enhance type checking because a function could be defined incorrectly at runtime
-          result.constructGraphNode = value as ((
-            metaData: DenoModuleMetaData<PM>,
-          ) => fr.PluginGraphNode);
-          break;
-
-        case "activate":
-          // TODO: enhance type checking because a function could be defined incorrectly at runtime
-          result.activate = value as ((
-            ac: DenoModuleActivateContext<PM>,
-          ) => Promise<DenoModuleActivateResult>);
-          break;
-
-        case "activateSync":
-          // TODO: enhance type checking because a function could be defined incorrectly at runtime
-          result.activateSync = value as ((
-            ac: DenoModuleActivateContext<PM>,
-          ) => DenoModuleActivateResult);
-          break;
-      }
-    }
-  }
-
-  return result;
-}
-
 export class StaticPlugins<PM extends fr.PluginsManager>
   implements fr.InactivePluginsSupplier {
   readonly validInactivePlugins: fr.ValidPluginRegistration[] = [];
@@ -422,6 +364,77 @@ export class DenoModuleRegistrar<PM extends fr.PluginsManager>
     readonly manager: PM,
     readonly telemetry: ImportModuleTelemetrySupplier,
   ) {
+  }
+
+  moduleMetaData(module: unknown): DenoModuleMetaData<PM> {
+    const result: DenoModuleMetaData<PM> = {
+      nature: {},
+      source: {},
+      untyped: {},
+    };
+    for (const entry of Object.entries(module as Record<string, unknown>)) {
+      const [key, value] = entry;
+      result.untyped[key] = value;
+      if (typeof value === "string") {
+        switch (key) {
+          case "systemID":
+            // if module has `export const systemID = "X"` then use that as the graphName
+            result.source.systemID = value;
+            break;
+
+          case "friendlyName":
+            // if module has `export const friendlyName = "X"` then use that as the graphName
+            result.source.friendlyName = value;
+            break;
+
+          case "abbreviatedName":
+            // if module has `export const abbreviatedName = "X"` then use that as the graphName
+            result.source.abbreviatedName = value;
+            break;
+
+          case "graphNodeName":
+            // if module has `export const graphNodeName = "X"` then use that as the graphName
+            result.source.graphNodeName = value;
+            break;
+        }
+
+        continue;
+      }
+
+      if (key === "nature" && fr.isPluginNature(value)) result.nature = value;
+
+      if (typeof value === "function") {
+        switch (key) {
+          case "plugin":
+            // TODO: enhance type checking because a function could be defined incorrectly at runtime
+            result.plugin = value as DenoModuleDynamicPluginSupplier<PM>;
+            break;
+
+          case "graphNode":
+            // TODO: enhance type checking because a function could be defined incorrectly at runtime
+            result.graphNode = value as ((
+              metaData: DenoModuleMetaData<PM>,
+            ) => fr.PluginGraphNode);
+            break;
+
+          case "activate":
+            // TODO: enhance type checking because a function could be defined incorrectly at runtime
+            result.activate = value as ((
+              ac: DenoModuleActivateContext<PM>,
+            ) => Promise<DenoModuleActivateResult>);
+            break;
+
+          case "activateSync":
+            // TODO: enhance type checking because a function could be defined incorrectly at runtime
+            result.activateSync = value as ((
+              ac: DenoModuleActivateContext<PM>,
+            ) => DenoModuleActivateResult);
+            break;
+        }
+      }
+    }
+
+    return result;
   }
 
   // deno-lint-ignore require-await
@@ -514,49 +527,63 @@ export class DenoModuleRegistrar<PM extends fr.PluginsManager>
     if (isDenoModulePluginSource(dms)) {
       try {
         if (dms.moduleEntryPoint) {
-          const metaData = moduleMetaData<PM>(dms.moduleEntryPoint);
-          const source: DenoModulePluginSource = {
-            ...dms,
-            ...metaData.source,
-          };
-          const defaultNature = { identity: "deno-module", ...metaData.nature };
-          const nature = options?.nature
-            ? options.nature(defaultNature)
-            : defaultNature;
-          const defaultGraphNode = metaData.constructGraphNode
-            ? metaData.constructGraphNode(metaData)
-            : new cxg.Node<fr.Plugin>(source.graphNodeName);
-          const graphNode = options?.graphNode
-            ? options?.graphNode({ nature, source }, defaultGraphNode)
-            : defaultGraphNode;
-          const potential:
-            & DenoModulePlugin
-            & fr.PluginGraphNodeSupplier
-            & fr.PluginGraphContributor = {
-              module: dms.moduleEntryPoint,
-              source,
-              graphNode,
-              nature,
-              activateGraphNode: (graph) => {
-                graph.addNode(graphNode);
-                return graphNode;
-              },
+          const metaData = this.moduleMetaData(dms.moduleEntryPoint);
+          let registration: fr.PluginRegistration;
+          if (metaData.plugin) {
+            // a deno module can provide an exported async module method called
+            // plugin() which returns a registration record dynamically
+            registration = await metaData.plugin(
+              dms.moduleEntryPoint,
+              this,
+              metaData,
+              options,
+            );
+          } else {
+            const source: DenoModulePluginSource = {
+              ...dms,
+              ...metaData.source,
             };
-          const validated = await this.validate(
-            potential,
-            metaData,
-          );
-          if (options?.transform && fr.isValidPluginRegistration(validated)) {
-            return options.transform(validated);
+            const defaultNature = {
+              identity: "deno-module",
+              ...metaData.nature,
+            };
+            const nature = options?.nature
+              ? options.nature(defaultNature)
+              : defaultNature;
+            const defaultGraphNode = metaData.graphNode
+              ? metaData.graphNode(metaData)
+              : new cxg.Node<fr.Plugin>(source.graphNodeName);
+            const graphNode = options?.graphNode
+              ? options?.graphNode({ nature, source }, defaultGraphNode)
+              : defaultGraphNode;
+            const potential:
+              & DenoModulePlugin
+              & fr.PluginGraphNodeSupplier
+              & fr.PluginGraphContributor = {
+                module: dms.moduleEntryPoint,
+                source,
+                graphNode,
+                nature,
+                activateGraphNode: (graph) => {
+                  graph.addNode(graphNode);
+                  return graphNode;
+                },
+              };
+            registration = await this.validate(potential, metaData);
           }
-          return validated;
+          if (
+            options?.transform && fr.isValidPluginRegistration(registration)
+          ) {
+            return options.transform(registration);
+          }
+          return registration;
         } else {
           const result: fr.InvalidPluginRegistration = {
             source: ps,
             issues: [{
               source: dms,
               diagnostics: [
-                "invalid typeScriptFileRegistrar plugin: unable to import module (unknown error)",
+                "DenoModuleRegistrar error: dms.moduleEntryPoint not provided",
               ],
             }],
           };
@@ -565,7 +592,10 @@ export class DenoModuleRegistrar<PM extends fr.PluginsManager>
       } catch (err) {
         const result: fr.InvalidPluginRegistration = {
           source: ps,
-          issues: [{ source: dms, diagnostics: [err] }],
+          issues: [{
+            source: dms,
+            diagnostics: [`DenoModuleRegistrar exception: ${err}`],
+          }],
         };
         return result;
       }
@@ -575,7 +605,7 @@ export class DenoModuleRegistrar<PM extends fr.PluginsManager>
       issues: [{
         source: dms,
         diagnostics: [
-          "typeScriptFileRegistrar() only knows how to register file system sources",
+          "DenoModuleRegistrar only knows how to register DenoModulePluginSource instances",
         ],
       }],
     };
