@@ -47,13 +47,14 @@ export class ShellFileRegistrar<PM extends extn.PluginsManager>
     if (fs.isFileSystemPluginSource(source)) {
       const isExecutableCmd = this.isExecutable(source.absPathAndFileName);
       if (!isExecutableCmd) {
+        const fi = Deno.statSync(source.absPathAndFileName);
         const result: extn.InvalidPluginRegistration = {
           source,
           issues: [
             {
               source,
               diagnostics: [
-                "source is not executable (executable bit not set?)",
+                `source is not executable (executable bit not set?): file mode is ${fi.mode}}`,
               ],
             },
           ],
