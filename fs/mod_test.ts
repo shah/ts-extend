@@ -1,4 +1,5 @@
 import {
+  colors,
   extn,
   govnSvcTelemetry as telem,
   path,
@@ -23,24 +24,14 @@ window.addEventListener("unload", async () => {
 
 export class TestCustomPluginsManager extends extn.TypicalPluginsManager
   implements mod.FileSystemPluginsManager {
-  readonly telemetry = new extn.TypicalTypeScriptRegistrarTelemetry();
+  readonly telemetry = new telem.Telemetry();
   readonly testModuleLocalFsPath = path.relative(
     Deno.cwd(),
     path.dirname(import.meta.url).substr("file://".length),
   );
-
-  readonly typescriptRegistrarOptions: extn.TypeScriptRegistrarOptions<this> = {
-    validateModule: extn.registerDenoFunctionModule,
-    importModule: (source) => {
-      return extn.importCachedModule(source, this.telemetry);
-    },
-    moduleMetaData: extn.moduleMetaData,
-    activate: extn.typicalDenoModuleActivate,
-    telemetry: this.telemetry,
-  };
-  readonly tsFileRegistrar = new mod.TypeScriptFileRegistrar(
+  readonly dmfr = new mod.DenoModuleFileRegistrar<this>(
     this,
-    this.typescriptRegistrarOptions,
+    this.telemetry,
   );
   readonly fileExtnsRegistrar: mod.FileSourcePluginRegistrar<this>;
 
@@ -50,7 +41,7 @@ export class TestCustomPluginsManager extends extn.TypicalPluginsManager
       this,
       (source) => {
         if (source.absPathAndFileName.endsWith(".ts")) {
-          return this.tsFileRegistrar;
+          return this.dmfr;
         }
         return undefined;
       },
@@ -67,11 +58,11 @@ export class TestCustomPluginsManager extends extn.TypicalPluginsManager
         globs: [{ glob: "**/*.plugin.*" }], // TODO: for each glob allow nature, etc. to be adjusted
       },
     ]);
-    const staticPlugins = new extn.StaticPlugins(
-      this,
-      this.typescriptRegistrarOptions,
-    );
-    await staticPlugins.acquire(testStatic.custom, testStatic);
+    const staticPlugins = new extn.StaticPlugins(this.dmfr.denoModuleRegistrar);
+    await staticPlugins.acquire({
+      ...testStatic.custom.source,
+      moduleEntryPoint: testStatic,
+    });
     await this.activate({ pluginsAcquirers: [fsrPlugins, staticPlugins] });
   }
 
@@ -130,16 +121,26 @@ Deno.test(`CustomPluginsManager singleton is available`, () => {
   ta.assert(window.testPluginsManager);
 });
 
-Deno.test(`CustomPluginsManager discovered proper number of plugins`, () => {
+Deno.test(`CustomPluginsManager should not have any invalid plugins`, () => {
   const pluginsMgr = window.testPluginsManager;
-  ta.assertEquals(7, pluginsMgr.plugins.length);
+  const invalidCount = pluginsMgr.invalidPlugins.length;
+  if (invalidCount > 0) {
+    console.log("==========================================================");
+    console.log(`${invalidCount} Invalid Plugins (investigate why)`);
+    console.log("==========================================================");
+    for (const ip of pluginsMgr.invalidPlugins) {
+      console.log(`${colors.yellow(ip.source.systemID)}`);
+      console.log(ip.issues.flatMap((i) => i.diagnostics).join("\n"));
+    }
+    console.log("==========================================================");
+  }
+  ta.assertEquals(invalidCount, 0);
 });
 
-Deno.test(`CustomPluginsManager plugins are instrumented (TODO)`, () => {
+Deno.test(`CustomPluginsManager discovered proper number of plugins`, () => {
   const pluginsMgr = window.testPluginsManager;
-
-  // TODO: update as more telemetry is added, right now only TypeScript modules are instrumented
-  ta.assertEquals(5, pluginsMgr.telemetry.instruments.length);
+  ta.assertEquals(pluginsMgr.invalidPlugins.length, 0);
+  ta.assertEquals(pluginsMgr.plugins.length, 7);
 });
 
 Deno.test(`CustomPluginsManager shell plugins`, async () => {
@@ -176,10 +177,10 @@ Deno.test(`CustomPluginsManager shell plugins`, async () => {
       };
       return result;
     },
-    telemetry: new telem.Telemetry(),
   };
   const result = await shellExePlugin?.execute({
     pluginsManager: pluginsMgr,
+    telemetry: new extn.TypicalShellExeActionTelemetry(pluginsMgr.telemetry),
     options: shellCmdRegistrarOptions,
   });
   ta.assert(result, "shellExePlugin?.execute result should be available");
@@ -187,13 +188,13 @@ Deno.test(`CustomPluginsManager shell plugins`, async () => {
     shell.isExecutionResult(result.rscResult),
     "result.rscResult should be RunShellCommandExecResult",
   );
-  ta.assertEquals(0, result.rscResult.stdErrOutput.length);
+  ta.assertEquals(result.rscResult.stdErrOutput.length, 0);
   ta.assertEquals(
-    new TextDecoder().decode(result.rscResult.stdOut),
     `Hello World from shell executable plugin! (${
       result.rscResult.denoRunOpts.cmd[1]
     } ${result.rscResult.denoRunOpts.cmd[2]} ${result
       .rscResult.denoRunOpts.env?.TEST_EXTN_NAME})\n`,
+    new TextDecoder().decode(result.rscResult.stdOut),
   );
 });
 
@@ -209,7 +210,7 @@ Deno.test(`CustomPluginsManager Deno module plugins (TODO)`, () => {
   );
   ta.assert(tsAsyncPlugin);
   ta.assert(tsAsyncPlugin.isAsync);
-  ta.assertEquals(false, tsAsyncPlugin.isGenerator);
+  ta.assertEquals(tsAsyncPlugin.isGenerator, false);
 
   const tsAsyncGenPlugin = pluginsMgr.denoFunctionPluginByAbbrevName(
     "async-gfn-test.plugin.ts",
@@ -223,17 +224,17 @@ Deno.test(`CustomPluginsManager Deno module plugins (TODO)`, () => {
   );
   ta.assert(tsSyncPlugin);
   ta.assertEquals(
-    tsSyncPlugin.source.graphNodeName,
     "testSyncPluginFunction-graphNodeName",
+    tsSyncPlugin.source.graphNodeName,
   );
-  ta.assertEquals(false, tsSyncPlugin.isAsync);
-  ta.assertEquals(false, tsSyncPlugin.isGenerator);
+  ta.assertEquals(tsSyncPlugin.isAsync, false);
+  ta.assertEquals(tsSyncPlugin.isGenerator, false);
 
   const tsSyncGenPlugin = pluginsMgr.denoFunctionPluginByAbbrevName(
     "sync-gfn-test.plugin.ts",
   );
   ta.assert(tsSyncGenPlugin);
-  ta.assertEquals(false, tsSyncGenPlugin.isAsync);
+  ta.assertEquals(tsSyncGenPlugin.isAsync, false);
   ta.assert(tsSyncGenPlugin.isGenerator);
 
   ta.assert(pluginsMgr.denoModulePluginByAbbrevName("constructed"));
@@ -255,9 +256,21 @@ Deno.test(`CustomPluginsManager module activation and deactivation`, async () =>
   ta.assert(extn.isDenoModulePlugin(staticPlugin));
   ta.assert(testGovn.isTestState(staticPlugin));
   ta.assert(staticPlugin.activateCountState == 1);
+  ta.assert(staticPlugin.activateGraphCountState == 1);
   ta.assert(staticPlugin.deactivateCountState == 0);
 
-  await pluginsMgr.deactivate();
+  await pluginsMgr.deactivate({});
   ta.assert(staticPlugin.deactivateCountState > 0);
+  ta.assert(staticPlugin.deactivateGraphCountState > 0);
   ta.assert(tsConstructedPlugin.deactivateCountState > 0);
+});
+
+Deno.test(`CustomPluginsManager plugins are graphed`, () => {
+  const pluginsMgr = window.testPluginsManager;
+  ta.assertEquals(pluginsMgr.pluginsGraph.overallTopNodes().length, 7);
+});
+
+Deno.test(`CustomPluginsManager plugins are instrumented`, () => {
+  const pluginsMgr = window.testPluginsManager;
+  ta.assertEquals(pluginsMgr.telemetry.instruments.length, 6);
 });

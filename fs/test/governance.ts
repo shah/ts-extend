@@ -18,15 +18,18 @@ export interface TestActionSupplier {
   readonly execute: () => Promise<void>;
 }
 
-export interface TestState {
+export interface TestState extends extn.PluginGraphNodeSupplier {
   activateCountState: number;
+  activateGraphCountState: number;
   deactivateCountState: number;
+  deactivateGraphCountState: number;
   executeCountState: number;
-  readonly graphNode: extn.PluginGraphNode;
 }
 
 export const isTestState = safety.typeGuard<TestState>(
   "activateCountState",
+  "activateGraphCountState",
+  "deactivateGraphCountState",
   "deactivateCountState",
   "executeCountState",
   "graphNode",

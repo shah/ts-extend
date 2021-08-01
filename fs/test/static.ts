@@ -7,21 +7,31 @@ export const custom:
   & govn.TestPlugin
   & govn.TestActionSupplier
   & govn.TestPluginActivatable
+  & extn.PluginGraphContributor
   & govn.TestState = {
     module: this,
     activationState: 0,
     activateCountState: 0,
+    activateGraphCountState: 0,
+    deactivateGraphCountState: 0,
     deactivateCountState: 0,
     executeCountState: 0,
     // deno-lint-ignore require-await
     activate: async (ac) => {
       custom.activateCountState++;
-      ac.pluginsManager.pluginsGraph.addNode(custom.graphNode);
       return {
         context: ac,
         registration: ac.vpr,
         activationState: extn.PluginActivationState.Active,
       };
+    },
+    activateGraphNode: (graph) => {
+      custom.activateGraphCountState++;
+      graph.addNode(custom.graphNode);
+      return custom.graphNode;
+    },
+    deactivateGraphNode: (_graph) => {
+      custom.deactivateGraphCountState++;
     },
     // deno-lint-ignore require-await
     deactivate: async () => {

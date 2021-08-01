@@ -17,15 +17,38 @@ export interface PrepareShellCmdRunOptions {
   (sps: ShellExePluginSupplier): shell.RunShellCommandOptions;
 }
 
+export interface ShellExeActionTelemetry extends telem.Instrumentation {
+  readonly execute: (cmd: string[]) => telem.Instrumentable;
+}
+
+export class TypicalShellExeActionTelemetry implements ShellExeActionTelemetry {
+  readonly instruments: telem.Instrument[];
+  readonly prepareInstrument: (
+    options?: telem.InstrumentationOptions,
+  ) => telem.Instrumentable;
+
+  constructor(readonly parent: telem.Instrumentation) {
+    this.instruments = parent.instruments;
+    this.prepareInstrument = parent.prepareInstrument;
+  }
+
+  execute(cmd: string[]): telem.Instrumentable {
+    return this.prepareInstrument({
+      identity: "ShellExeActionTelemetry.execute",
+      baggage: { cmd: cmd },
+    });
+  }
+}
+
 export interface ShellExeActionOptions {
   readonly envVarsSupplier?: ShellCmdEnvVarsSupplier;
   readonly shellCmdEnhancer?: ShellCmdEnhancer;
   readonly runShellCmdOpts?: PrepareShellCmdRunOptions;
-  readonly telemetry: telem.Telemetry;
 }
 
 export interface ShellExeActionContext<PM extends fr.PluginsManager>
   extends fr.PluginsManagerSupplier<PM> {
+  readonly telemetry: ShellExeActionTelemetry;
   readonly options: ShellExeActionOptions;
 }
 

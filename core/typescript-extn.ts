@@ -9,6 +9,20 @@ declare global {
   }
 }
 
+export interface DenoModulePluginSource extends fr.PluginSource {
+  readonly moduleEntryPoint: unknown;
+}
+
+export const isDenoModulePluginSource = safety.typeGuard<
+  DenoModulePluginSource
+>(
+  "systemID",
+  "friendlyName",
+  "abbreviatedName",
+  "graphNodeName",
+  "moduleEntryPoint",
+);
+
 export interface ModuleCacheEntry {
   readonly source: URL;
   readonly module: unknown;
@@ -131,20 +145,6 @@ export interface TypeScriptModuleRegistrationSupplier<
   ): Promise<fr.ValidPluginRegistration | fr.InvalidPluginRegistration>;
 }
 
-export interface TypeScriptRegistrarTelemetry extends telem.Instrumentation {
-  readonly import: (source: URL) => telem.Instrumentable;
-}
-
-export interface TypeScriptRegistrarOptions<PM extends fr.PluginsManager> {
-  readonly validateModule: TypeScriptModuleRegistrationSupplier<PM>;
-  readonly importModule: (src: URL) => Promise<unknown>;
-  readonly moduleMetaData: (module: unknown) => DenoModuleMetaData<PM>;
-  readonly activate: (
-    dmac: DenoModuleActivateContext<PM>,
-  ) => Promise<DenoModuleActivateResult>;
-  readonly telemetry: TypeScriptRegistrarTelemetry;
-}
-
 export interface DenoFunctionModulePlugin<PM extends fr.PluginsManager>
   extends DenoModulePlugin {
   readonly handler: DenoFunctionModuleHandler;
@@ -197,9 +197,13 @@ export const isDenoFunctionModuleActionResult = safety.typeGuard<
   DenoFunctionModuleActionResult
 >("dfmhResult");
 
+export interface ImportModuleTelemetrySupplier {
+  readonly import: (source: URL) => telem.Instrumentable;
+}
+
 export async function importUncachedModule(
   src: URL,
-  telemetry: TypeScriptRegistrarTelemetry,
+  telemetry: ImportModuleTelemetrySupplier,
 ): Promise<unknown> {
   const instr = telemetry.import(src);
   const module = await import(src.toString());
@@ -209,7 +213,7 @@ export async function importUncachedModule(
 
 export async function importCachedModule(
   source: URL,
-  telemetry: TypeScriptRegistrarTelemetry,
+  telemetry: ImportModuleTelemetrySupplier,
 ): Promise<unknown> {
   let mce = window.cachedModules.get(source);
   if (!mce) {
@@ -223,7 +227,7 @@ export async function importCachedModule(
 }
 
 // deno-lint-ignore require-await
-export async function registerDenoFunctionModule<PM extends fr.PluginsManager>(
+export async function validateDenoFunctionModule<PM extends fr.PluginsManager>(
   _manager: PM,
   potential: DenoModulePlugin,
   metaData: DenoModuleMetaData<PM>,
@@ -232,7 +236,7 @@ export async function registerDenoFunctionModule<PM extends fr.PluginsManager>(
   // deno-lint-ignore no-explicit-any
   const module = potential.module as any;
   const moduleDefault = module.default;
-  let guardFailed = false;
+  let guardFailedDiagnostic: string | undefined;
 
   // if we've already created a valid plugin (e.g. from cache)
   if (fr.isValidPluginRegistration(moduleDefault)) {
@@ -263,14 +267,15 @@ export async function registerDenoFunctionModule<PM extends fr.PluginsManager>(
       isGenerator,
       metaData,
     };
-    if (!options?.guard || options.guard(plugin)) {
+    if (!options?.guard || options.guard.guard(plugin)) {
       const result: fr.ValidPluginRegistration = {
         source: potential.source,
         plugin,
       };
       return result;
     }
-    guardFailed = true;
+    // if we get to here it means we have a guard and it failed
+    guardFailedDiagnostic = options.guard.guardFailureDiagnostic(plugin);
   }
 
   const result: fr.InvalidPluginRegistration = {
@@ -278,9 +283,9 @@ export async function registerDenoFunctionModule<PM extends fr.PluginsManager>(
     issues: [{
       source: potential.source,
       diagnostics: [
-        guardFailed
-          ? `invalid plugin: guard failed after construction`
-          : `invalid plugin: typeof 'default' is ${
+        guardFailedDiagnostic
+          ? `guard failure: ${colors.yellow(guardFailedDiagnostic)}`
+          : `typeof 'default' is ${
             colors.yellow(typeof moduleDefault)
           } (expected function, DenoFunctionModulePlugin, or ValidPluginRegistration instance)`,
       ],
@@ -289,8 +294,18 @@ export async function registerDenoFunctionModule<PM extends fr.PluginsManager>(
   return result;
 }
 
-export class TypicalTypeScriptRegistrarTelemetry extends telem.Telemetry
-  implements TypeScriptRegistrarTelemetry {
+export class TypicalDenoModuleRegistrarTelemetry
+  implements ImportModuleTelemetrySupplier {
+  readonly instruments: telem.Instrument[];
+  readonly prepareInstrument: (
+    options?: telem.InstrumentationOptions,
+  ) => telem.Instrumentable;
+
+  constructor(readonly parent: telem.Instrumentation) {
+    this.instruments = parent.instruments;
+    this.prepareInstrument = parent.prepareInstrument;
+  }
+
   import(source: URL): telem.Instrumentable {
     return this.prepareInstrument({
       identity: "TypeScriptRegistrar.import",
@@ -367,43 +382,203 @@ export function moduleMetaData<PM extends fr.PluginsManager>(
   return result;
 }
 
-// deno-lint-ignore require-await
-export async function typicalDenoModuleActivate<PM extends fr.PluginsManager>(
-  ac: DenoModuleActivateContext<PM>,
-): Promise<
-  DenoModuleActivateContext<PM> & DenoModuleActivateResult
-> {
-  ac.pluginsManager.pluginsGraph.addNode(
-    new cxg.Node(ac.vpr.plugin.source.graphNodeName),
-  );
-  return {
-    ...ac,
-    registration: ac.vpr,
-    activationState: fr.PluginActivationState.Active,
-  };
-}
-
 export class StaticPlugins<PM extends fr.PluginsManager>
   implements fr.InactivePluginsSupplier {
   readonly validInactivePlugins: fr.ValidPluginRegistration[] = [];
   readonly invalidPlugins: fr.InvalidPluginRegistration[] = [];
+  readonly unknownPlugins: fr.PluginRegistration[] = [];
 
+  constructor(readonly registrar: DenoModuleRegistrar<PM>) {
+  }
+
+  async acquire(source: DenoModulePluginSource): Promise<void> {
+    const registration = await this.registrar.pluginRegistration(
+      source, // deno-lint-ignore require-await
+      async (source, suggested) => {
+        return suggested || {
+          source,
+          issues: [{
+            source,
+            diagnostics: [
+              `invalid plugin: ${JSON.stringify(source)}`,
+            ],
+          }],
+        };
+      },
+    );
+    if (fr.isValidPluginRegistration(registration)) {
+      this.validInactivePlugins.push(registration);
+    } else if (fr.isInvalidPluginRegistration(registration)) {
+      this.invalidPlugins.push(registration);
+    } else {
+      this.unknownPlugins.push(registration);
+    }
+  }
+}
+
+export class DenoModuleRegistrar<PM extends fr.PluginsManager>
+  implements fr.PluginRegistrar {
   constructor(
     readonly manager: PM,
-    readonly tsro: TypeScriptRegistrarOptions<PM>,
+    readonly telemetry: ImportModuleTelemetrySupplier,
   ) {
   }
 
-  async acquire(source: DenoModulePlugin, module: unknown): Promise<void> {
-    const staticModule = await registerDenoFunctionModule(
-      this.manager,
-      { ...source, module: module },
-      this.tsro.moduleMetaData(module),
-    );
-    if (fr.isValidPluginRegistration(staticModule)) {
-      this.validInactivePlugins.push(staticModule);
-    } else {
-      this.invalidPlugins.push(staticModule);
+  // deno-lint-ignore require-await
+  async validate(
+    potential: DenoModulePlugin,
+    metaData: DenoModuleMetaData<PM>,
+    options?: fr.PluginRegistrationOptions,
+  ): Promise<fr.ValidPluginRegistration | fr.InvalidPluginRegistration> {
+    // deno-lint-ignore no-explicit-any
+    const module = potential.module as any;
+    const moduleDefault = module.default;
+    let guardFailedDiagnostic: string | undefined;
+
+    // if we've already created a valid plugin (e.g. from cache)
+    if (fr.isValidPluginRegistration(moduleDefault)) {
+      return moduleDefault;
     }
+
+    // if an entire plugin is pre-constructed
+    if (isDenoModulePlugin(moduleDefault)) {
+      const result: fr.ValidPluginRegistration = {
+        plugin: moduleDefault,
+        source: moduleDefault.source,
+      };
+      return result;
+    }
+
+    // not cached or pre-constructed, see if it's a function
+    if (typeof moduleDefault === "function") {
+      const handler = moduleDefault as DenoFunctionModuleHandler;
+      const handlerConstrName = handler.constructor.name;
+      const isGenerator = (handlerConstrName === "GeneratorFunction" ||
+        handlerConstrName === "AsyncGeneratorFunction");
+      const isAsync = handlerConstrName === "AsyncFunction" ||
+        handlerConstrName === "AsyncGeneratorFunction";
+      const plugin: DenoFunctionModulePlugin<PM> = {
+        ...potential,
+        handler,
+        isAsync,
+        isGenerator,
+        metaData,
+      };
+      if (!options?.guard || options.guard.guard(plugin)) {
+        const result: fr.ValidPluginRegistration = {
+          source: potential.source,
+          plugin,
+        };
+        return result;
+      }
+      // if we get to here it means we have a guard and it failed
+      guardFailedDiagnostic = options.guard.guardFailureDiagnostic(plugin);
+    }
+
+    const result: fr.InvalidPluginRegistration = {
+      source: potential.source,
+      issues: [{
+        source: potential.source,
+        diagnostics: [
+          guardFailedDiagnostic
+            ? `guard failure: ${colors.yellow(guardFailedDiagnostic)}`
+            : `typeof 'default' is ${
+              colors.yellow(typeof moduleDefault)
+            } (expected function, DenoFunctionModulePlugin, or ValidPluginRegistration instance)`,
+        ],
+      }],
+    };
+    return result;
+  }
+
+  // deno-lint-ignore require-await
+  async pluginApplicability(
+    source: fr.PluginSource,
+  ): Promise<fr.PluginRegistrarSourceApplicability> {
+    if (isDenoModulePluginSource(source)) {
+      return { isApplicable: true };
+    }
+    return { isApplicable: false };
+  }
+
+  async pluginRegistration(
+    ps: fr.PluginSource,
+    onInvalid: (
+      src: fr.PluginSource,
+      suggested?: fr.InvalidPluginRegistration,
+    ) => Promise<fr.PluginRegistration>,
+    options?: fr.PluginRegistrationOptions,
+  ): Promise<fr.PluginRegistration> {
+    const applicable = await this.pluginApplicability(ps);
+    const dms = applicable.redirectSource || ps;
+    if (isDenoModulePluginSource(dms)) {
+      try {
+        if (dms.moduleEntryPoint) {
+          const metaData = moduleMetaData<PM>(dms.moduleEntryPoint);
+          const source: DenoModulePluginSource = {
+            ...dms,
+            ...metaData.source,
+          };
+          const defaultNature = { identity: "deno-module", ...metaData.nature };
+          const nature = options?.nature
+            ? options.nature(defaultNature)
+            : defaultNature;
+          const defaultGraphNode = metaData.constructGraphNode
+            ? metaData.constructGraphNode(metaData)
+            : new cxg.Node<fr.Plugin>(source.graphNodeName);
+          const graphNode = options?.graphNode
+            ? options?.graphNode({ nature, source }, defaultGraphNode)
+            : defaultGraphNode;
+          const potential:
+            & DenoModulePlugin
+            & fr.PluginGraphNodeSupplier
+            & fr.PluginGraphContributor = {
+              module: dms.moduleEntryPoint,
+              source,
+              graphNode,
+              nature,
+              activateGraphNode: (graph) => {
+                graph.addNode(graphNode);
+                return graphNode;
+              },
+            };
+          const validated = await this.validate(
+            potential,
+            metaData,
+          );
+          if (options?.transform && fr.isValidPluginRegistration(validated)) {
+            return options.transform(validated);
+          }
+          return validated;
+        } else {
+          const result: fr.InvalidPluginRegistration = {
+            source: ps,
+            issues: [{
+              source: dms,
+              diagnostics: [
+                "invalid typeScriptFileRegistrar plugin: unable to import module (unknown error)",
+              ],
+            }],
+          };
+          return result;
+        }
+      } catch (err) {
+        const result: fr.InvalidPluginRegistration = {
+          source: ps,
+          issues: [{ source: dms, diagnostics: [err] }],
+        };
+        return result;
+      }
+    }
+    const result: fr.InvalidPluginRegistration = {
+      source: ps,
+      issues: [{
+        source: dms,
+        diagnostics: [
+          "typeScriptFileRegistrar() only knows how to register file system sources",
+        ],
+      }],
+    };
+    return onInvalid(dms, result);
   }
 }

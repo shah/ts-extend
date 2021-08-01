@@ -1,12 +1,22 @@
-import { cxg, extn, path } from "./deps.ts";
+import { extn, govnSvcTelemetry as telem, path } from "./deps.ts";
 import * as fs from "./file-sys-plugin.ts";
 
-export class TypeScriptFileRegistrar<PM extends extn.PluginsManager>
+export class DenoModuleFileRegistrar<PM extends extn.PluginsManager>
   implements extn.PluginRegistrar {
+  readonly denoModuleRegistrar: extn.DenoModuleRegistrar<PM>;
+  readonly denoModulesTelemetry: extn.TypicalDenoModuleRegistrarTelemetry;
+
   constructor(
     readonly manager: PM,
-    readonly tsro: extn.TypeScriptRegistrarOptions<PM>,
+    readonly telemetry: telem.Instrumentation,
   ) {
+    this.denoModulesTelemetry = new extn.TypicalDenoModuleRegistrarTelemetry(
+      telemetry,
+    );
+    this.denoModuleRegistrar = new extn.DenoModuleRegistrar(
+      manager,
+      this.denoModulesTelemetry,
+    );
   }
 
   // deno-lint-ignore require-await
@@ -22,75 +32,45 @@ export class TypeScriptFileRegistrar<PM extends extn.PluginsManager>
   }
 
   async pluginRegistration(
-    originalSource: extn.PluginSource,
+    source: extn.PluginSource,
     onInvalid: (
       src: extn.PluginSource,
       suggested?: extn.InvalidPluginRegistration,
     ) => Promise<extn.PluginRegistration>,
     options?: extn.PluginRegistrationOptions,
   ): Promise<extn.PluginRegistration> {
-    if (fs.isFileSystemPluginSource(originalSource)) {
+    if (fs.isFileSystemPluginSource(source)) {
       try {
-        // the ts-extn package is going to be URL-imported but the files
-        // we're importing are local to the calling pubctl.ts in the project
-        // so we need to use absolute paths
-        const module = await this.tsro.importModule(
-          path.toFileUrl(originalSource.absPathAndFileName),
+        const module = await extn.importCachedModule(
+          path.toFileUrl(source.absPathAndFileName),
+          this.denoModulesTelemetry,
         );
-        if (module) {
-          const metaData = this.tsro.moduleMetaData(module);
-          const source: extn.PluginSource = {
-            ...originalSource,
-            ...metaData.source,
-          };
-          const graphNode = metaData.constructGraphNode
-            ? metaData.constructGraphNode(metaData)
-            : new cxg.Node<extn.Plugin>(source.graphNodeName);
-          const defaultNature = { identity: "deno-module", ...metaData.nature };
-          const potential: extn.DenoModulePlugin & {
-            readonly graphNode: cxg.Node<extn.Plugin>;
-          } = {
-            module,
-            source,
-            graphNode,
-            nature: options?.nature
-              ? options.nature(defaultNature)
-              : defaultNature,
-          };
-          return await this.tsro.validateModule(
-            this.manager,
-            potential,
-            metaData,
-          );
-        } else {
-          const result: extn.InvalidPluginRegistration = {
-            source: originalSource,
-            issues: [{
-              source: originalSource,
-              diagnostics: [
-                "invalid typeScriptFileRegistrar plugin: unable to import module (unknown error)",
-              ],
-            }],
-          };
-          return result;
-        }
+        const dms: extn.DenoModulePluginSource = {
+          ...source,
+          moduleEntryPoint: module,
+        };
+        return await this.denoModuleRegistrar.pluginRegistration(
+          dms,
+          onInvalid,
+          options,
+        );
       } catch (err) {
         const result: extn.InvalidPluginRegistration = {
-          source: originalSource,
-          issues: [{ source: originalSource, diagnostics: [err] }],
+          source: source,
+          issues: [{ source: source, diagnostics: [err] }],
         };
         return result;
       }
     }
     const result: extn.InvalidPluginRegistration = {
-      source: originalSource,
+      source: source,
       issues: [{
-        source: originalSource,
+        source: source,
         diagnostics: [
           "typeScriptFileRegistrar() only knows how to register file system sources",
         ],
       }],
     };
-    return onInvalid(originalSource, result);
+    return onInvalid(source, result);
   }
 }

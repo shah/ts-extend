@@ -50,9 +50,21 @@ export interface PluginRegistrarSourceApplicability {
   readonly alternateRegistrar?: PluginRegistrar;
 }
 
+export interface PluginGuard<P extends Plugin> {
+  readonly guard: (o: unknown) => o is P;
+  readonly guardFailureDiagnostic: (o: unknown) => string;
+}
+
 export interface PluginRegistrationOptions {
   readonly nature?: (suggested: PluginNature) => PluginNature;
-  readonly guard?: <P extends Plugin>(o: unknown) => o is P;
+  readonly transform?: (
+    acquired: ValidPluginRegistration,
+  ) => ValidPluginRegistration;
+  readonly guard?: PluginGuard<Plugin>;
+  readonly graphNode?: (
+    plugin: Plugin,
+    suggested?: PluginGraphNode,
+  ) => PluginGraphNode;
 }
 
 export interface PluginRegistrar {
@@ -74,10 +86,19 @@ export type PluginsGraph = cxg.CxGraph;
 
 export interface PluginsManagerActivationContext {
   readonly pluginsAcquirers: InactivePluginsSupplier[];
+  readonly beforeActivate?: (
+    ac: ActivateContext<PluginsManager>,
+  ) => Promise<void>;
+  readonly afterActivate?: (plugin: Plugin) => Promise<void>;
 }
 
-// deno-lint-ignore no-empty-interface
 export interface PluginsManagerDeactivationContext {
+  readonly beforeDeactivate?: (
+    dac: DeactivateContext<PluginsManager>,
+  ) => Promise<void>;
+  readonly afterDeactivate?: (
+    dac: DeactivateContext<PluginsManager>,
+  ) => Promise<void>;
 }
 
 export interface PluginsManager {
@@ -141,6 +162,23 @@ export const isPlugin = safety.typeGuard<Plugin>(
   "nature",
   "source",
 );
+
+export interface PluginGraphNodeSupplier {
+  readonly graphNode: PluginGraphNode;
+}
+
+export const isPluginGraphNodeSupplier = safety.typeGuard<
+  PluginGraphNodeSupplier
+>("graphNode");
+
+export interface PluginGraphContributor {
+  readonly activateGraphNode: (graph: PluginsGraph) => PluginGraphNode;
+  readonly deactivateGraphNode?: (graph: PluginsGraph) => void;
+}
+
+export const isPluginGraphContributor = safety.typeGuard<
+  PluginGraphContributor
+>("activateGraphNode");
 
 export enum PluginActivationState {
   Unknown = 0,
@@ -244,6 +282,7 @@ export abstract class TypicalPluginsManager implements PluginsManager {
           pluginsManager: this,
           vpr,
         };
+        if (pmac.beforeActivate) await pmac.beforeActivate(ac);
         if (isActivatablePlugin(ac.vpr.plugin)) {
           activate(await ac.vpr.plugin.activate(ac));
         } else if (isActivatableSyncPlugin(ac.vpr.plugin)) {
@@ -252,6 +291,10 @@ export abstract class TypicalPluginsManager implements PluginsManager {
           // not a typescript module or no activation hook requested, no special activation
           this.plugins.push(ac.vpr.plugin);
         }
+        if (isPluginGraphContributor(ac.vpr.plugin)) {
+          ac.vpr.plugin.activateGraphNode(this.pluginsGraph);
+        }
+        if (pmac.afterActivate) await pmac.afterActivate(ac.vpr.plugin);
       }
 
       for (const ipr of acquired.invalidPlugins) {
@@ -260,9 +303,10 @@ export abstract class TypicalPluginsManager implements PluginsManager {
     }
   }
 
-  async deactivate(): Promise<void> {
+  async deactivate(ctx: PluginsManagerDeactivationContext): Promise<void> {
     for (const plugin of this.plugins) {
       const dac: DeactivateContext<this> = { pluginsManager: this, plugin };
+      if (ctx.beforeDeactivate) await ctx.beforeDeactivate(dac);
       if (isActivatablePlugin(plugin)) {
         await plugin.deactivate(dac);
         // the ActivatablePlugin is immutable for others, but we're special
@@ -274,6 +318,12 @@ export abstract class TypicalPluginsManager implements PluginsManager {
         ((plugin as unknown) as MutableActivationStateSupplier)
           .activationState = PluginActivationState.Inactive;
       }
+      if (
+        isPluginGraphContributor(dac.plugin) && dac.plugin.deactivateGraphNode
+      ) {
+        dac.plugin.deactivateGraphNode(this.pluginsGraph);
+      }
+      if (ctx.afterDeactivate) await ctx.afterDeactivate(dac);
     }
   }
 }
