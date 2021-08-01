@@ -3,6 +3,49 @@ import * as fr from "../framework.ts";
 import * as shExtn from "../shell-exe-extn.ts";
 import * as tsExtn from "../typescript-extn.ts";
 
+export interface PluginActionContext<
+  PE extends PluginExecutive,
+  PM extends PluginsManager<PluginsManagerActivateContext>,
+> extends PluginExecutiveSupplier<PE, PM> {
+  readonly vpr: ValidPluginRegistration;
+}
+export interface ActionResult<
+  PE extends PluginExecutive,
+  PC extends PluginContext<PE>,
+> {
+  readonly context: PC;
+}
+
+export interface Action<PE extends PluginExecutive> {
+  readonly execute: (
+    pc: PluginContext<PE>,
+  ) => Promise<ActionResult<PE, PluginContext<PE>>>;
+}
+
+export interface ActionSync<PE extends PluginExecutive> {
+  readonly executeSync: (
+    pc: PluginContext<PE>,
+  ) => ActionResult<PE, PluginContext<PE>>;
+}
+
+export function isActionPlugin<PE extends PluginExecutive>(
+  o: unknown,
+): o is Plugin & Action<PE> {
+  if (isPlugin(o)) {
+    return "execute" in o;
+  }
+  return false;
+}
+
+export function isActionSyncPlugin<PE extends PluginExecutive>(
+  o: unknown,
+): o is Plugin & ActionSync<PE> {
+  if (isPlugin(o)) {
+    return "executeSync" in o;
+  }
+  return false;
+}
+
 export type CommandProxyPluginActivityMessage = string;
 
 export interface CommandProxyPluginActivity {

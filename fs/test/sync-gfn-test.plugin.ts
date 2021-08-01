@@ -1,10 +1,8 @@
 import * as govn from "./governance.ts";
 
-export function* testGenSyncPluginFunction(
-  context: govn.TestPluginContext,
-) {
+export function* testGenSyncPluginFunction(tps: govn.TestPluginSupplier) {
   console.log("Hello World from TypeScript testSyncPluginFunction");
-  yield { context };
+  yield { tps };
   return undefined;
 }
 

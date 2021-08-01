@@ -1,33 +1,33 @@
-import { safety } from "../../deps.ts";
-import * as mod from "../../mod.ts";
-import * as modT from "../mod_test.ts";
+import { extn, safety } from "../deps.ts";
 
-export type TestPluginsSupplier = mod.PluginsSupplier<modT.TestExecutive>;
+export type TestPlugin = extn.DenoModulePlugin;
+export type TestPluginSupplier = extn.PluginSupplier;
+export type TestPluginFunction = extn.DenoFunctionModuleHandler;
+export type TestPluginFunctionResult = extn.DenoFunctionModuleHandlerResult;
 
-export type TestPluginContext = mod.PluginContext<modT.TestExecutive>;
-
-export type TestPluginActionResult = mod.ActionResult<
-  modT.TestExecutive,
-  TestPluginContext
->;
-
-export interface TestAction
-  extends mod.DenoModulePlugin, mod.Action<modT.TestExecutive> {
+// deno-lint-ignore no-empty-interface
+export interface TestPluginActivatable extends
+  extn.Activatable<
+    extn.PluginsManager,
+    extn.ActivateContext<extn.PluginsManager>,
+    extn.DeactivateContext<extn.PluginsManager>
+  > {
 }
 
-export type TestPluginActivatable = mod.DenoModuleActivatable<
-  modT.TestExecutive
->;
+export interface TestActionSupplier {
+  readonly execute: () => Promise<void>;
+}
 
 export interface TestState {
   activateCountState: number;
   deactivateCountState: number;
   executeCountState: number;
-  readonly graphNode: mod.PluginGraphNode;
+  readonly graphNode: extn.PluginGraphNode;
 }
 
 export const isTestState = safety.typeGuard<TestState>(
   "activateCountState",
+  "deactivateCountState",
   "executeCountState",
   "graphNode",
 );

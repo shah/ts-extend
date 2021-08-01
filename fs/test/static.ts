@@ -1,10 +1,11 @@
-import { cxg } from "../../deps.ts";
+import { cxg, extn } from "../deps.ts";
 import * as govn from "./governance.ts";
 
 const url = new URL(import.meta.url);
 const graphNodeName = import.meta.url;
 export const custom:
-  & govn.TestAction
+  & govn.TestPlugin
+  & govn.TestActionSupplier
   & govn.TestPluginActivatable
   & govn.TestState = {
     module: this,
@@ -15,17 +16,20 @@ export const custom:
     // deno-lint-ignore require-await
     activate: async (ac) => {
       custom.activateCountState++;
-      ac.supplier.pluginsGraph.addNode(custom.graphNode);
-      return { context: ac, registration: ac.vpr };
+      ac.pluginsManager.pluginsGraph.addNode(custom.graphNode);
+      return {
+        context: ac,
+        registration: ac.vpr,
+        activationState: extn.PluginActivationState.Active,
+      };
     },
     // deno-lint-ignore require-await
     deactivate: async () => {
       custom.deactivateCountState++;
     },
     // deno-lint-ignore require-await
-    execute: async (context) => {
+    execute: async () => {
       custom.executeCountState++;
-      return { context };
     },
     nature: { identity: `deno-${url.protocol}-${url.hostname}` },
     source: {

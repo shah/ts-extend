@@ -1,10 +1,10 @@
 import * as govn from "./governance.ts";
 
 export async function* testAsyncGeneratorPluginFunction(
-  context: govn.TestPluginContext,
-): AsyncGenerator<govn.TestPluginActionResult, undefined, unknown> {
+  tps: govn.TestPluginSupplier,
+): AsyncGenerator<govn.TestPluginFunctionResult, undefined, unknown> {
   console.log("Hello World from TypeScript testSyncPluginFunction");
-  yield { context };
+  yield { tps };
   return undefined;
 }
 

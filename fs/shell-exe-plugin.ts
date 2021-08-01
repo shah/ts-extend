@@ -1,41 +1,49 @@
-import { cxg, govnSvcTelemetry as telem, path, shell } from "../deps.ts";
-import * as fr from "../framework.ts";
-import * as shExtn from "../shell-exe-extn.ts";
+import { extn, path, shell } from "./deps.ts";
 import * as fs from "./file-sys-plugin.ts";
 
-export interface ShellFileRegistrarOptions<PE extends fr.PluginExecutive> {
-  readonly envVarsSupplier?: shExtn.ShellCmdEnvVarsSupplier<PE>;
-  readonly shellCmdEnhancer?: shExtn.ShellCmdEnhancer<PE>;
-  readonly runShellCmdOpts?: shExtn.PrepareShellCmdRunOptions<PE>;
-  // TODO: create activePlugin similar to TypeScript
-  // readonly activatePlugin: (
-  //   dmac: DMAC,
-  //   plugin: DenoModulePlugin,
-  // ) => Promise<DMAR | false>;
-  readonly telemetry: telem.Telemetry;
+export interface ExecutableDeterminer {
+  (path: string): false | string[];
 }
 
-export function shellFileRegistrarSync<
-  PE extends fr.PluginExecutive,
-  PC extends fr.PluginContext<PE>,
-  SEAR extends shExtn.ShellExeActionResult<PE, PC>,
->(
-  options: ShellFileRegistrarOptions<PE>,
-): fr.PluginRegistrarSync {
-  const isExecutable = (path: string): false | string[] => {
-    const fi = Deno.statSync(path);
-    const isExe = fi.mode != null ? (fi.mode & 0o0001 ? true : false) : true;
-    if (isExe) {
-      return ["/bin/sh", "-c", path];
-    }
-    return false;
-  };
+export class ShellFileRegistrar<PM extends extn.PluginsManager>
+  implements extn.PluginRegistrar {
+  readonly isExecutable: ExecutableDeterminer;
 
-  return (source: fr.PluginSource): fr.PluginRegistration => {
+  constructor(readonly manager: PM, isExecutable?: ExecutableDeterminer) {
+    this.isExecutable = isExecutable || ((path: string): false | string[] => {
+      const fi = Deno.statSync(path);
+      const isExe = fi.mode != null ? (fi.mode & 0o0001 ? true : false) : true;
+      if (isExe) {
+        return [path];
+      }
+      return false;
+    });
+  }
+
+  // deno-lint-ignore require-await
+  async pluginApplicability(
+    source: extn.PluginSource,
+  ): Promise<extn.PluginRegistrarSourceApplicability> {
     if (fs.isFileSystemPluginSource(source)) {
-      const isExecutableCmd = isExecutable(source.absPathAndFileName);
+      if (this.isExecutable(source.absPathAndFileName)) {
+        return { isApplicable: true };
+      }
+    }
+    return { isApplicable: false };
+  }
+
+  // deno-lint-ignore require-await
+  async pluginRegistration(
+    source: extn.PluginSource,
+    onInvalid: (
+      src: extn.PluginSource,
+      suggested?: extn.InvalidPluginRegistration,
+    ) => Promise<extn.PluginRegistration>,
+  ): Promise<extn.PluginRegistration> {
+    if (fs.isFileSystemPluginSource(source)) {
+      const isExecutableCmd = this.isExecutable(source.absPathAndFileName);
       if (!isExecutableCmd) {
-        const result: fr.InvalidPluginRegistration = {
+        const result: extn.InvalidPluginRegistration = {
           source,
           issues: [
             { source, diagnostics: ["executable bit not set on source"] },
@@ -43,51 +51,38 @@ export function shellFileRegistrarSync<
         };
         return result;
       }
-      const graphNode = new cxg.Node<fr.Plugin>(source.graphNodeName);
-      const plugin: shExtn.ShellExePlugin<PE> & {
-        readonly graphNode: cxg.Node<fr.Plugin>;
-      } = {
+      const plugin: extn.ShellExePlugin = {
         source,
         nature: { identity: "shell-file-executable" },
-        graphNode,
-        // TODO: add activate() to manage graphs
-        // registerNode: (graph) => {
-        //   graph.addNode(graphNode);
-        //   return graphNode;
-        // },
-        envVars: options.envVarsSupplier,
-        shellCmd: (pc: fr.PluginContext<PE>): string[] => {
-          return options.shellCmdEnhancer
-            ? options.shellCmdEnhancer(pc, isExecutableCmd)
-            : isExecutableCmd;
-        },
-        execute: async (context) => {
-          const cmd = options.shellCmdEnhancer
-            ? options.shellCmdEnhancer(context, isExecutableCmd)
+        execute: async (seac) => {
+          const pc: extn.ShellExePluginSupplier = {
+            plugin,
+          };
+          const cmd = seac.options.shellCmdEnhancer
+            ? seac.options.shellCmdEnhancer(pc, isExecutableCmd)
             : isExecutableCmd;
           const rscResult = await shell.runShellCommand(
             {
               cmd: cmd,
               cwd: path.dirname(source.absPathAndFileName),
-              env: options.envVarsSupplier
-                ? options.envVarsSupplier(context)
+              env: seac.options.envVarsSupplier
+                ? seac.options.envVarsSupplier(pc)
                 : undefined,
             },
-            options.runShellCmdOpts
-              ? options.runShellCmdOpts(context)
+            seac.options.runShellCmdOpts
+              ? seac.options.runShellCmdOpts(pc)
               : undefined,
           );
-          const actionResult: SEAR = {
-            context,
+          const actionResult: extn.ShellExeActionResult = {
             rscResult,
-          } as SEAR; // TODO: this shouldn't be necessary but was getting TS error :-(
+          };
           return actionResult;
         },
       };
-      const result: fr.ValidPluginRegistration = { source, plugin };
+      const result: extn.ValidPluginRegistration = { source, plugin };
       return result;
     }
-    const result: fr.InvalidPluginRegistration = {
+    const result: extn.InvalidPluginRegistration = {
       source,
       issues: [{
         source,
@@ -96,17 +91,6 @@ export function shellFileRegistrarSync<
         ],
       }],
     };
-    return result;
-  };
-}
-
-export function shellFileRegistrar<PE extends fr.PluginExecutive>(
-  options: ShellFileRegistrarOptions<PE>,
-): fr.PluginRegistrar {
-  const regSync = shellFileRegistrarSync(options);
-
-  // deno-lint-ignore require-await
-  return async (source: fr.PluginSource): Promise<fr.PluginRegistration> => {
-    return regSync(source);
-  };
+    return onInvalid(source, result);
+  }
 }

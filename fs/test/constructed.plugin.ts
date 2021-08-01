@@ -1,9 +1,10 @@
+import { cxg, extn } from "../deps.ts";
 import * as govn from "./governance.ts";
-import { cxg } from "../../deps.ts";
 
 const graphNodeName = "pre-constructed system ID";
 export const constructed:
-  & govn.TestAction
+  & govn.TestPlugin
+  & govn.TestActionSupplier
   & govn.TestPluginActivatable
   & govn.TestState = {
     module: this,
@@ -14,17 +15,20 @@ export const constructed:
     // deno-lint-ignore require-await
     activate: async (ac) => {
       constructed.activateCountState++;
-      ac.supplier.pluginsGraph.addNode(constructed.graphNode);
-      return { context: ac, registration: ac.vpr };
+      ac.pluginsManager.pluginsGraph.addNode(constructed.graphNode);
+      return {
+        context: ac,
+        registration: ac.vpr,
+        activationState: extn.PluginActivationState.Active,
+      };
     },
     // deno-lint-ignore require-await
     deactivate: async () => {
       constructed.deactivateCountState++;
     },
     // deno-lint-ignore require-await
-    execute: async (context) => {
+    execute: async () => {
       constructed.executeCountState++;
-      return { context };
     },
     nature: { identity: "deno-custom" },
     source: {

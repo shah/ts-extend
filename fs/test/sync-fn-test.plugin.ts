@@ -3,10 +3,10 @@ import * as govn from "./governance.ts";
 // exporting a const named graphNodeName will set source.graphNodeName
 export const graphNodeName = "testSyncPluginFunction-graphNodeName";
 export function testSyncPluginFunction(
-  context: govn.TestPluginContext,
-): govn.TestPluginActionResult {
+  tps: govn.TestPluginSupplier,
+): govn.TestPluginFunctionResult {
   console.log("Hello World from TypeScript testSyncPluginFunction");
-  return { context };
+  return { tps };
 }
 
 // publish the function so that the extension framework finds it

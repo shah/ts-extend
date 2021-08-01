@@ -17,6 +17,6 @@ case $COMMAND in
     ;;
 
   *)
-    echo "unknown $SCRIPT_NAME hook step '$COMMAND' in $SCRIPT_HOME"
+    echo "unknown $SCRIPT_NAME command '$COMMAND' in $SCRIPT_HOME"
     ;;
 esac

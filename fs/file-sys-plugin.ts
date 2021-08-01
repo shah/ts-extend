@@ -1,29 +1,15 @@
-import { fs, path, safety } from "../deps.ts";
-import * as fr from "../framework.ts";
-import * as tsExtn from "../typescript-extn.ts";
-import * as sfp from "./shell-exe-plugin.ts";
-import * as tsp from "./typescript-plugin.ts";
+import { extn, fs, path, safety } from "./deps.ts";
 
 export type FileSystemPathAndFName = string;
 export type FileSystemPathOnly = string;
 export type FileSystemGlob = string;
 export type FileSystemGlobs = FileSystemGlob[];
 
-export interface FileSystemPluginsSupplier<PE extends fr.PluginExecutive>
-  extends fr.PluginsSupplier<PE> {
-  readonly localFsSources: FileSystemGlobs;
+// deno-lint-ignore no-empty-interface
+export interface FileSystemPluginsManager extends extn.PluginsManager {
 }
 
-export function isFileSystemPluginsSupplier<PE extends fr.PluginExecutive>(
-  o: unknown,
-): o is FileSystemPluginsSupplier<PE> {
-  const isFSPS = safety.typeGuard<FileSystemPluginsSupplier<PE>>(
-    "localFsSources",
-  );
-  return fr.isPluginsSupplier(o) && isFSPS(o);
-}
-
-export interface FileSystemPluginSource extends fr.PluginSource {
+export interface FileSystemPluginSource extends extn.PluginSource {
   readonly absPathAndFileName: string;
 }
 
@@ -31,83 +17,148 @@ export const isFileSystemPluginSource = safety.typeGuard<
   FileSystemPluginSource
 >(
   "absPathAndFileName",
+  "systemID",
+  "friendlyName",
+  "abbreviatedName",
+  "graphNodeName",
 );
 
-export function fileSystemPluginRegistrar<
-  PE extends fr.PluginExecutive,
-  PS extends fr.PluginsSupplier<PE>,
->(
-  executive: PE,
-  supplier: PS,
-  src: FileSystemPluginSource,
-  sfro: sfp.ShellFileRegistrarOptions<PE>,
-  tsro: tsExtn.TypeScriptRegistrarOptions<PE>,
-): fr.PluginRegistrar | undefined {
-  switch (path.extname(src.absPathAndFileName)) {
-    case ".ts":
-      return tsp.typeScriptFileRegistrar(executive, supplier, tsro);
+export class FileExtensionPluginRegistrar<PM extends extn.PluginsManager>
+  implements extn.PluginRegistrar {
+  readonly fileExtns: Map<string, extn.PluginRegistrar>;
+  constructor(
+    readonly manager: PM,
+    readonly defaultRegistrar: extn.PluginRegistrar,
+    fileExtns: (
+      fepr: FileExtensionPluginRegistrar<PM>,
+      manager: PM,
+    ) => Map<string, extn.PluginRegistrar>,
+  ) {
+    this.fileExtns = fileExtns(this, manager);
+  }
 
-    default:
-      return sfp.shellFileRegistrar<PE>(sfro);
+  // deno-lint-ignore require-await
+  async pluginApplicability(
+    source: extn.PluginSource,
+  ): Promise<extn.PluginRegistrarSourceApplicability> {
+    if (isFileSystemPluginSource(source)) {
+      const registrar = this.fileExtns.get(
+        path.extname(source.absPathAndFileName),
+      );
+      if (registrar) {
+        return { isApplicable: true, alternateRegistrar: registrar };
+      }
+      return { isApplicable: true, alternateRegistrar: this.defaultRegistrar };
+    }
+    return { isApplicable: false };
+  }
+
+  async pluginRegistration(
+    source: extn.PluginSource,
+    onInvalid: (
+      src: extn.PluginSource,
+      suggested?: extn.InvalidPluginRegistration,
+    ) => Promise<extn.PluginRegistration>,
+  ): Promise<extn.PluginRegistration> {
+    const pa = await this.pluginApplicability(source);
+    if (pa.isApplicable) {
+      if (pa.alternateRegistrar) {
+        return await pa.alternateRegistrar.pluginRegistration(
+          pa.redirectSource || source,
+          onInvalid,
+        );
+      } else {
+        const invalid: extn.InvalidPluginRegistration = {
+          source,
+          issues: [
+            {
+              source,
+              diagnostics: [
+                `FileExtensionPluginRegistrar.pluginRegistration pa.alternateRegistrar not provided`,
+              ],
+            },
+          ],
+        };
+        return onInvalid(source, invalid);
+      }
+    }
+    return onInvalid(source);
   }
 }
 
-export interface DiscoverFileSystemPluginSource extends FileSystemPluginSource {
+export interface DiscoverFileSystemRoute {
+  readonly registrars: extn.PluginRegistrar[];
   readonly discoveryPath: FileSystemPathOnly;
+  readonly globs: FileSystemGlob[];
+}
+
+export interface DiscoverFileSystemPluginSource extends FileSystemPluginSource {
+  readonly route: DiscoverFileSystemRoute;
   readonly glob: FileSystemGlob;
 }
 
 export const isDiscoverFileSystemPluginSource = safety.typeGuard<
   DiscoverFileSystemPluginSource
->("discoveryPath", "glob");
-
-export interface DiscoverFileSystemPluginsOptions<
-  PE extends fr.PluginExecutive,
-> {
-  readonly discoveryPath: FileSystemPathOnly;
-  readonly globs: FileSystemGlobs;
-  readonly onValidPlugin: (vpr: fr.ValidPluginRegistration) => void;
-  readonly onInvalidPlugin?: (ipr: fr.InvalidPluginRegistration) => void;
-  readonly shellFileRegistryOptions: sfp.ShellFileRegistrarOptions<PE>;
-  readonly typeScriptFileRegistryOptions: tsExtn.TypeScriptRegistrarOptions<PE>;
-}
-
-export async function discoverFileSystemPlugins<
-  PE extends fr.PluginExecutive,
-  PS extends fr.PluginsSupplier<PE>,
 >(
-  executive: PE,
-  supplier: PS,
-  options: DiscoverFileSystemPluginsOptions<PE>,
-): Promise<void> {
-  const { discoveryPath, globs, onValidPlugin, onInvalidPlugin } = options;
-  for (const glob of globs) {
-    for (const we of fs.expandGlobSync(glob, { root: options.discoveryPath })) {
-      if (we.isFile) {
-        const dfspSrc: DiscoverFileSystemPluginSource = {
-          discoveryPath: discoveryPath,
-          glob,
-          systemID: we.path,
-          friendlyName: path.relative(discoveryPath, we.path),
-          abbreviatedName: path.basename(we.path),
-          absPathAndFileName: we.path,
-          graphNodeName: path.relative(discoveryPath, we.path),
-        };
+  "route",
+  "absPathAndFileName",
+  "systemID",
+  "friendlyName",
+  "abbreviatedName",
+  "graphNodeName",
+);
 
-        const register = fileSystemPluginRegistrar(
-          executive,
-          supplier,
-          dfspSrc,
-          options.shellFileRegistryOptions,
-          options.typeScriptFileRegistryOptions,
-        );
-        if (register) {
-          const registration = await register(dfspSrc);
-          if (fr.isValidPluginRegistration(registration)) {
-            onValidPlugin(registration);
-          }
-          if (fr.isInvalidPluginRegistration(registration) && onInvalidPlugin) {
-            onInvalidPlugin(registration);
+export class FileSystemRoutesPlugins implements extn.InactivePluginsSupplier {
+  readonly validInactivePlugins: extn.ValidPluginRegistration[] = [];
+  readonly invalidPlugins: extn.InvalidPluginRegistration[] = [];
+  readonly unknownPlugins: extn.PluginRegistration[] = [];
+
+  constructor() {
+  }
+
+  async acquire(routes: DiscoverFileSystemRoute[]): Promise<void> {
+    for (const route of routes) {
+      for (const glob of route.globs) {
+        for (
+          const we of fs.expandGlobSync(glob, { root: route.discoveryPath })
+        ) {
+          if (we.isFile) {
+            const dfspSrc: DiscoverFileSystemPluginSource = {
+              route,
+              glob,
+              systemID: we.path,
+              friendlyName: path.relative(route.discoveryPath, we.path),
+              abbreviatedName: path.basename(we.path),
+              absPathAndFileName: we.path,
+              graphNodeName: path.relative(route.discoveryPath, we.path),
+            };
+
+            for (const registrar of route.registrars) {
+              const registration = await registrar.pluginRegistration(
+                dfspSrc,
+                // deno-lint-ignore require-await
+                async (source, suggested) => {
+                  return suggested || {
+                    source,
+                    issues: [{
+                      source,
+                      diagnostics: [
+                        `invalid plugin: ${JSON.stringify(source)}`,
+                      ],
+                    }],
+                  };
+                },
+              );
+              if (registration) {
+                if (extn.isValidPluginRegistration(registration)) {
+                  this.validInactivePlugins.push(registration);
+                } else if (extn.isInvalidPluginRegistration(registration)) {
+                  this.invalidPlugins.push(registration);
+                } else {
+                  this.unknownPlugins.push(registration);
+                }
+              }
+            }
           }
         }
       }

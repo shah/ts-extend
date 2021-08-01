@@ -38,40 +38,64 @@ export const isDenoModulePlugin = safety.typeGuard<DenoModulePlugin>(
 );
 
 // deno-lint-ignore no-empty-interface
-export interface DenoModuleActivateContext<PE extends fr.PluginExecutive>
-  extends fr.ActivateContext<PE, fr.PluginContext<PE>, fr.PluginsSupplier<PE>> {
+export interface DenoModuleActivateContext<PM extends fr.PluginsManager>
+  extends fr.ActivateContext<PM> {
+}
+
+// deno-lint-ignore no-empty-interface
+export interface DenoModuleDeactivateContext<PM extends fr.PluginsManager>
+  extends fr.DeactivateContext<PM> {
 }
 
 // deno-lint-ignore no-empty-interface
 export interface DenoModuleActivateResult extends fr.ActivateResult {
 }
 
-// deno-lint-ignore no-empty-interface
-export interface DenoModuleActivatable<PE extends fr.PluginExecutive>
-  extends fr.Activatable<PE> {
+export interface DenoModuleActivatable<PM extends fr.PluginsManager>
+  extends
+    fr.Activatable<
+      PM,
+      DenoModuleActivateContext<PM>,
+      DenoModuleDeactivateContext<PM>
+    > {
+  readonly activate: (
+    ac: DenoModuleActivateContext<PM>,
+  ) => Promise<DenoModuleActivateResult>;
+  readonly deactivate: (
+    ac: DenoModuleDeactivateContext<PM>,
+  ) => Promise<void>;
 }
 
-// deno-lint-ignore no-empty-interface
-export interface DenoModuleActivatableSync<PE extends fr.PluginExecutive>
-  extends fr.ActivatableSync<PE> {
+export interface DenoModuleActivatableSync<PM extends fr.PluginsManager>
+  extends
+    fr.ActivatableSync<
+      PM,
+      DenoModuleActivateContext<PM>,
+      DenoModuleDeactivateContext<PM>
+    > {
+  readonly activateSync: (
+    ac: DenoModuleActivateContext<PM>,
+  ) => DenoModuleActivateResult;
+  readonly deactivateSync: (
+    ac: DenoModuleDeactivateContext<PM>,
+  ) => Promise<void>;
 }
 
-export function isDenoModuleActivatablePlugin<PE extends fr.PluginExecutive>(
+export function isDenoModuleActivatablePlugin<PM extends fr.PluginsManager>(
   o: unknown,
-): o is DenoModulePlugin & DenoModuleActivatable<PE> {
+): o is DenoModulePlugin & DenoModuleActivatable<PM> {
   if (isDenoModulePlugin(o)) {
-    return "activate" in o;
+    return "activate" in o && "deactivate" in o && "activationState" in o;
   }
   return false;
 }
 
-export function isDenoModuleActivatableSyncPlugin<
-  PE extends fr.PluginExecutive,
->(
+export function isDenoModuleActivatableSyncPlugin<PM extends fr.PluginsManager>(
   o: unknown,
-): o is DenoModulePlugin & DenoModuleActivatableSync<PE> {
+): o is DenoModulePlugin & DenoModuleActivatableSync<PM> {
   if (isDenoModulePlugin(o)) {
-    return "activateSync" in o;
+    return "activateSync" in o && "deactivateSync" in o &&
+      "activationState" in o;
   }
   return false;
 }
@@ -81,30 +105,28 @@ export function isDenoModuleActivatableSyncPlugin<
  * a Deno module. Plugin details defined in this interface may be overridden
  * by a Deno module plugin.
  */
-export interface DenoModuleMetaData<PE extends fr.PluginExecutive> {
+export interface DenoModuleMetaData<PM extends fr.PluginsManager> {
   nature: fr.MutableOptionalPluginNature;
   source: fr.MutableOptionalPluginSource;
   constructGraphNode?: (
-    metaData: DenoModuleMetaData<PE>,
+    metaData: DenoModuleMetaData<PM>,
   ) => fr.PluginGraphNode;
   activate?: (
-    ac: DenoModuleActivateContext<PE>,
+    ac: DenoModuleActivateContext<PM>,
   ) => Promise<DenoModuleActivateResult>;
   activateSync?: (
-    ac: DenoModuleActivateContext<PE>,
+    ac: DenoModuleActivateContext<PM>,
   ) => DenoModuleActivateResult;
   untyped: Record<string, unknown>;
 }
 
 export interface TypeScriptModuleRegistrationSupplier<
-  PE extends fr.PluginExecutive,
-  PS extends fr.PluginsSupplier<PE>,
+  PM extends fr.PluginsManager,
 > {
   (
-    executive: PE,
-    supplier: PS,
+    manager: PM,
     potential: DenoModulePlugin,
-    metaData: DenoModuleMetaData<PE>,
+    metaData: DenoModuleMetaData<PM>,
   ): Promise<fr.ValidPluginRegistration | fr.InvalidPluginRegistration>;
 }
 
@@ -112,25 +134,22 @@ export interface TypeScriptRegistrarTelemetry extends telem.Instrumentation {
   readonly import: (source: URL) => telem.Instrumentable;
 }
 
-export interface TypeScriptRegistrarOptions<PE extends fr.PluginExecutive> {
-  readonly validateModule: TypeScriptModuleRegistrationSupplier<
-    PE,
-    fr.PluginsSupplier<PE>
-  >;
+export interface TypeScriptRegistrarOptions<PM extends fr.PluginsManager> {
+  readonly validateModule: TypeScriptModuleRegistrationSupplier<PM>;
   readonly importModule: (src: URL) => Promise<unknown>;
-  readonly moduleMetaData: (module: unknown) => DenoModuleMetaData<PE>;
+  readonly moduleMetaData: (module: unknown) => DenoModuleMetaData<PM>;
   readonly activate: (
-    dmac: DenoModuleActivateContext<PE>,
+    dmac: DenoModuleActivateContext<PM>,
   ) => Promise<DenoModuleActivateResult>;
   readonly telemetry: TypeScriptRegistrarTelemetry;
 }
 
-export interface DenoFunctionModulePlugin<PE extends fr.PluginExecutive>
+export interface DenoFunctionModulePlugin<PM extends fr.PluginsManager>
   extends DenoModulePlugin {
-  readonly handler: DenoFunctionModuleHandler<PE>;
+  readonly handler: DenoFunctionModuleHandler;
   readonly isAsync: boolean;
   readonly isGenerator: boolean;
-  readonly metaData: DenoModuleMetaData<PE>;
+  readonly metaData: DenoModuleMetaData<PM>;
 }
 
 export function isGeneratorFunction(o: unknown) {
@@ -142,9 +161,9 @@ export function isGeneratorFunction(o: unknown) {
   return (name === "GeneratorFunction" || name === "AsyncGeneratorFunction");
 }
 
-export function isDenoFunctionModulePlugin<PE extends fr.PluginExecutive>(
+export function isDenoFunctionModulePlugin<PM extends fr.PluginsManager>(
   o: unknown,
-): o is DenoFunctionModulePlugin<PE> {
+): o is DenoFunctionModulePlugin<PM> {
   if (isDenoModulePlugin(o)) {
     return "handler" in o && "isAsync" in o && "isGenerator" in o;
   }
@@ -153,8 +172,8 @@ export function isDenoFunctionModulePlugin<PE extends fr.PluginExecutive>(
 
 export type DenoFunctionModuleHandlerResult = unknown;
 
-export interface DenoFunctionModuleHandler<PE extends fr.PluginExecutive> {
-  (pc: fr.PluginContext<PE>):
+export interface DenoFunctionModuleHandler {
+  (ps: fr.PluginSupplier):
     | Promise<DenoFunctionModuleHandlerResult>
     | DenoFunctionModuleHandlerResult
     | Promise<
@@ -169,24 +188,13 @@ export interface DenoFunctionModuleHandler<PE extends fr.PluginExecutive> {
     >;
 }
 
-export interface DenoFunctionModuleActionResult<
-  PE extends fr.PluginExecutive,
-  PC extends fr.PluginContext<PE>,
-> extends fr.ActionResult<PE, PC> {
+export interface DenoFunctionModuleActionResult {
   readonly dfmhResult: DenoFunctionModuleHandlerResult;
 }
 
-export function isDenoFunctionModuleActionResult<
-  PE extends fr.PluginExecutive,
-  PC extends fr.PluginContext<PE>,
->(
-  o: unknown,
-): o is DenoFunctionModuleActionResult<PE, PC> {
-  const isDfmaResult = safety.typeGuard<DenoFunctionModuleActionResult<PE, PC>>(
-    "dfmhResult",
-  );
-  return isDfmaResult(o);
-}
+export const isDenoFunctionModuleActionResult = safety.typeGuard<
+  DenoFunctionModuleActionResult
+>("dfmhResult");
 
 export async function importUncachedModule(
   src: URL,
@@ -214,11 +222,10 @@ export async function importCachedModule(
 }
 
 // deno-lint-ignore require-await
-export async function registerDenoFunctionModule<PE extends fr.PluginExecutive>(
-  _executive: PE,
-  _supplier: fr.PluginsSupplier<PE>,
+export async function registerDenoFunctionModule<PM extends fr.PluginsManager>(
+  _manager: PM,
   potential: DenoModulePlugin,
-  metaData: DenoModuleMetaData<PE>,
+  metaData: DenoModuleMetaData<PM>,
 ): Promise<fr.ValidPluginRegistration | fr.InvalidPluginRegistration> {
   // deno-lint-ignore no-explicit-any
   const module = potential.module as any;
@@ -240,34 +247,19 @@ export async function registerDenoFunctionModule<PE extends fr.PluginExecutive>(
 
   // not cached or pre-constructed, see if it's a function
   if (typeof moduleDefault === "function") {
-    const handler = moduleDefault as DenoFunctionModuleHandler<PE>;
+    const handler = moduleDefault as DenoFunctionModuleHandler;
     const handlerConstrName = handler.constructor.name;
     const isGenerator = (handlerConstrName === "GeneratorFunction" ||
       handlerConstrName === "AsyncGeneratorFunction");
     const isAsync = handlerConstrName === "AsyncFunction" ||
       handlerConstrName === "AsyncGeneratorFunction";
-    const plugin:
-      & DenoFunctionModulePlugin<PE>
-      & fr.Action<PE> = {
-        ...potential,
-        handler,
-        isAsync,
-        isGenerator,
-        execute: async (context) => {
-          const dfmhResult = isAsync
-            ? await handler(context)
-            : handler(context);
-          const actionResult: DenoFunctionModuleActionResult<
-            PE,
-            fr.PluginContext<PE>
-          > = {
-            context,
-            dfmhResult,
-          };
-          return actionResult;
-        },
-        metaData,
-      };
+    const plugin: DenoFunctionModulePlugin<PM> = {
+      ...potential,
+      handler,
+      isAsync,
+      isGenerator,
+      metaData,
+    };
     const result: fr.ValidPluginRegistration = {
       source: potential.source,
       plugin,
@@ -299,10 +291,10 @@ export class TypicalTypeScriptRegistrarTelemetry extends telem.Telemetry
   }
 }
 
-export function moduleMetaData<PE extends fr.PluginExecutive>(
+export function moduleMetaData<PM extends fr.PluginsManager>(
   module: unknown,
-): DenoModuleMetaData<PE> {
-  const result: DenoModuleMetaData<PE> = {
+): DenoModuleMetaData<PM> {
+  const result: DenoModuleMetaData<PM> = {
     nature: {},
     source: {},
     untyped: {},
@@ -343,21 +335,21 @@ export function moduleMetaData<PE extends fr.PluginExecutive>(
         case "constructGraphNode":
           // TODO: enhance type checking because a function could be defined incorrectly at runtime
           result.constructGraphNode = value as ((
-            metaData: DenoModuleMetaData<PE>,
+            metaData: DenoModuleMetaData<PM>,
           ) => fr.PluginGraphNode);
           break;
 
         case "activate":
           // TODO: enhance type checking because a function could be defined incorrectly at runtime
           result.activate = value as ((
-            ac: DenoModuleActivateContext<PE>,
+            ac: DenoModuleActivateContext<PM>,
           ) => Promise<DenoModuleActivateResult>);
           break;
 
         case "activateSync":
           // TODO: enhance type checking because a function could be defined incorrectly at runtime
           result.activateSync = value as ((
-            ac: DenoModuleActivateContext<PE>,
+            ac: DenoModuleActivateContext<PM>,
           ) => DenoModuleActivateResult);
           break;
       }
@@ -368,16 +360,42 @@ export function moduleMetaData<PE extends fr.PluginExecutive>(
 }
 
 // deno-lint-ignore require-await
-export async function typicalDenoModuleActivate<PE extends fr.PluginExecutive>(
-  ac: DenoModuleActivateContext<PE>,
+export async function typicalDenoModuleActivate<PM extends fr.PluginsManager>(
+  ac: DenoModuleActivateContext<PM>,
 ): Promise<
-  DenoModuleActivateContext<PE> & DenoModuleActivateResult
+  DenoModuleActivateContext<PM> & DenoModuleActivateResult
 > {
-  ac.supplier.pluginsGraph.addNode(
-    new cxg.Node(ac.context.plugin.source.graphNodeName),
+  ac.pluginsManager.pluginsGraph.addNode(
+    new cxg.Node(ac.vpr.plugin.source.graphNodeName),
   );
   return {
     ...ac,
     registration: ac.vpr,
+    activationState: fr.PluginActivationState.Active,
   };
+}
+
+export class StaticPlugins<PM extends fr.PluginsManager>
+  implements fr.InactivePluginsSupplier {
+  readonly validInactivePlugins: fr.ValidPluginRegistration[] = [];
+  readonly invalidPlugins: fr.InvalidPluginRegistration[] = [];
+
+  constructor(
+    readonly manager: PM,
+    readonly tsro: TypeScriptRegistrarOptions<PM>,
+  ) {
+  }
+
+  async acquire(source: DenoModulePlugin, module: unknown): Promise<void> {
+    const staticModule = await registerDenoFunctionModule(
+      this.manager,
+      { ...source, module: module },
+      this.tsro.moduleMetaData(module),
+    );
+    if (fr.isValidPluginRegistration(staticModule)) {
+      this.validInactivePlugins.push(staticModule);
+    } else {
+      this.invalidPlugins.push(staticModule);
+    }
+  }
 }
