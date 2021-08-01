@@ -38,19 +38,23 @@ export class TestCustomPluginsManager extends extn.TypicalPluginsManager
     activate: extn.typicalDenoModuleActivate,
     telemetry: this.telemetry,
   };
-  readonly fileExtnsRegistrar: mod.FileExtensionPluginRegistrar<this>;
+  readonly tsFileRegistrar = new mod.TypeScriptFileRegistrar(
+    this,
+    this.typescriptRegistrarOptions,
+  );
+  readonly fileExtnsRegistrar: mod.FileSourcePluginRegistrar<this>;
 
   constructor() {
     super();
-    const feRegistrarMap = new Map<string, extn.PluginRegistrar>();
-    feRegistrarMap.set(
-      ".ts",
-      new mod.TypeScriptFileRegistrar(this, this.typescriptRegistrarOptions),
-    );
-    this.fileExtnsRegistrar = new mod.FileExtensionPluginRegistrar(
+    this.fileExtnsRegistrar = new mod.FileSourcePluginRegistrar(
       this,
+      (source) => {
+        if (source.absPathAndFileName.endsWith(".ts")) {
+          return this.tsFileRegistrar;
+        }
+        return undefined;
+      },
       new mod.ShellFileRegistrar(this),
-      () => feRegistrarMap,
     );
   }
 
@@ -60,7 +64,7 @@ export class TestCustomPluginsManager extends extn.TypicalPluginsManager
       {
         registrars: [this.fileExtnsRegistrar],
         discoveryPath: path.join(this.testModuleLocalFsPath, "test"),
-        globs: ["**/*.plugin.*"],
+        globs: [{ glob: "**/*.plugin.*" }], // TODO: for each glob allow nature, etc. to be adjusted
       },
     ]);
     const staticPlugins = new extn.StaticPlugins(

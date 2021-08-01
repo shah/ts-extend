@@ -27,6 +27,7 @@ export class TypeScriptFileRegistrar<PM extends extn.PluginsManager>
       src: extn.PluginSource,
       suggested?: extn.InvalidPluginRegistration,
     ) => Promise<extn.PluginRegistration>,
+    nature?: (suggested: extn.PluginNature) => extn.PluginNature,
   ): Promise<extn.PluginRegistration> {
     if (fs.isFileSystemPluginSource(originalSource)) {
       try {
@@ -45,13 +46,14 @@ export class TypeScriptFileRegistrar<PM extends extn.PluginsManager>
           const graphNode = metaData.constructGraphNode
             ? metaData.constructGraphNode(metaData)
             : new cxg.Node<extn.Plugin>(source.graphNodeName);
+          const defaultNature = { identity: "deno-module", ...metaData.nature };
           const potential: extn.DenoModulePlugin & {
             readonly graphNode: cxg.Node<extn.Plugin>;
           } = {
             module,
             source,
             graphNode,
-            nature: { identity: "deno-module", ...metaData.nature },
+            nature: nature ? nature(defaultNature) : defaultNature,
           };
           return await this.tsro.validateModule(
             this.manager,

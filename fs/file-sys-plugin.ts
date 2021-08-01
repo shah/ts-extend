@@ -11,30 +11,31 @@ export interface FileSystemPluginsManager extends extn.PluginsManager {
 
 export interface FileSystemPluginSource extends extn.PluginSource {
   readonly absPathAndFileName: string;
+  readonly fileNameExtension: string;
 }
 
 export const isFileSystemPluginSource = safety.typeGuard<
   FileSystemPluginSource
 >(
   "absPathAndFileName",
+  "fileNameExtension",
   "systemID",
   "friendlyName",
   "abbreviatedName",
   "graphNodeName",
 );
 
-export class FileExtensionPluginRegistrar<PM extends extn.PluginsManager>
+export interface FileSystemPluginSourceRegistrarStrategy {
+  (source: FileSystemPluginSource): extn.PluginRegistrar | undefined;
+}
+
+export class FileSourcePluginRegistrar<PM extends extn.PluginsManager>
   implements extn.PluginRegistrar {
-  readonly fileExtns: Map<string, extn.PluginRegistrar>;
   constructor(
     readonly manager: PM,
-    readonly defaultRegistrar: extn.PluginRegistrar,
-    fileExtns: (
-      fepr: FileExtensionPluginRegistrar<PM>,
-      manager: PM,
-    ) => Map<string, extn.PluginRegistrar>,
+    readonly sourceNameRegistrar: FileSystemPluginSourceRegistrarStrategy,
+    readonly defaultRegistrar?: extn.PluginRegistrar,
   ) {
-    this.fileExtns = fileExtns(this, manager);
   }
 
   // deno-lint-ignore require-await
@@ -42,13 +43,16 @@ export class FileExtensionPluginRegistrar<PM extends extn.PluginsManager>
     source: extn.PluginSource,
   ): Promise<extn.PluginRegistrarSourceApplicability> {
     if (isFileSystemPluginSource(source)) {
-      const registrar = this.fileExtns.get(
-        path.extname(source.absPathAndFileName),
-      );
+      const registrar = this.sourceNameRegistrar(source);
       if (registrar) {
         return { isApplicable: true, alternateRegistrar: registrar };
       }
-      return { isApplicable: true, alternateRegistrar: this.defaultRegistrar };
+      if (this.defaultRegistrar) {
+        return {
+          isApplicable: true,
+          alternateRegistrar: this.defaultRegistrar,
+        };
+      }
     }
     return { isApplicable: false };
   }
@@ -59,6 +63,7 @@ export class FileExtensionPluginRegistrar<PM extends extn.PluginsManager>
       src: extn.PluginSource,
       suggested?: extn.InvalidPluginRegistration,
     ) => Promise<extn.PluginRegistration>,
+    nature?: (suggested: extn.PluginNature) => extn.PluginNature,
   ): Promise<extn.PluginRegistration> {
     const pa = await this.pluginApplicability(source);
     if (pa.isApplicable) {
@@ -66,6 +71,7 @@ export class FileExtensionPluginRegistrar<PM extends extn.PluginsManager>
         return await pa.alternateRegistrar.pluginRegistration(
           pa.redirectSource || source,
           onInvalid,
+          nature,
         );
       } else {
         const invalid: extn.InvalidPluginRegistration = {
@@ -86,10 +92,15 @@ export class FileExtensionPluginRegistrar<PM extends extn.PluginsManager>
   }
 }
 
+export interface DiscoverFileSystemRouteGlob {
+  readonly glob: FileSystemGlob;
+  readonly nature?: (suggested: extn.PluginNature) => extn.PluginNature;
+}
+
 export interface DiscoverFileSystemRoute {
   readonly registrars: extn.PluginRegistrar[];
   readonly discoveryPath: FileSystemPathOnly;
-  readonly globs: FileSystemGlob[];
+  readonly globs: DiscoverFileSystemRouteGlob[];
 }
 
 export interface DiscoverFileSystemPluginSource extends FileSystemPluginSource {
@@ -120,16 +131,19 @@ export class FileSystemRoutesPlugins implements extn.InactivePluginsSupplier {
     for (const route of routes) {
       for (const glob of route.globs) {
         for (
-          const we of fs.expandGlobSync(glob, { root: route.discoveryPath })
+          const we of fs.expandGlobSync(glob.glob, {
+            root: route.discoveryPath,
+          })
         ) {
           if (we.isFile) {
             const dfspSrc: DiscoverFileSystemPluginSource = {
               route,
-              glob,
+              glob: glob.glob,
               systemID: we.path,
               friendlyName: path.relative(route.discoveryPath, we.path),
               abbreviatedName: path.basename(we.path),
               absPathAndFileName: we.path,
+              fileNameExtension: path.extname(we.path),
               graphNodeName: path.relative(route.discoveryPath, we.path),
             };
 
@@ -148,6 +162,7 @@ export class FileSystemRoutesPlugins implements extn.InactivePluginsSupplier {
                     }],
                   };
                 },
+                glob.nature,
               );
               if (registration) {
                 if (extn.isValidPluginRegistration(registration)) {

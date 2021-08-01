@@ -60,6 +60,7 @@ export interface PluginRegistrar {
       src: PluginSource,
       suggested?: InvalidPluginRegistration,
     ) => Promise<PluginRegistration>,
+    nature?: (suggested: PluginNature) => PluginNature,
   ) => Promise<PluginRegistration>;
 }
 
