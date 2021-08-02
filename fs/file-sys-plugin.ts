@@ -99,10 +99,10 @@ export interface DiscoverFileSystemRouteGlob
   extends extn.PluginRegistrationOptions {
   readonly registrarID: extn.PluginRegistrarIdentity;
   readonly glob: FileSystemGlob;
-  readonly isCandidate?: (
+  readonly enhanceSource?: (
     dfspSrc: DiscoverFileSystemPluginSource,
     registrar: extn.PluginRegistrar,
-  ) => boolean;
+  ) => DiscoverFileSystemPluginSource | undefined;
 }
 
 export interface DiscoverFileSystemRoute {
@@ -120,6 +120,7 @@ export const isDiscoverFileSystemPluginSource = safety.typeGuard<
   DiscoverFileSystemPluginSource
 >(
   "route",
+  "registrarID",
   "absPathAndFileName",
   "systemID",
   "friendlyName",
@@ -145,7 +146,7 @@ export class FileSystemRoutesPlugins implements extn.InactivePluginsSupplier {
         ) {
           if (we.isFile) {
             for (const registrar of route.registrars) {
-              const dfspSrc: DiscoverFileSystemPluginSource = {
+              let dfspSrc: DiscoverFileSystemPluginSource = {
                 registrarID: `${registrar.registrarID}::${glob.registrarID}`,
                 route,
                 glob: glob.glob,
@@ -157,9 +158,12 @@ export class FileSystemRoutesPlugins implements extn.InactivePluginsSupplier {
                 graphNodeName: path.relative(route.discoveryPath, we.path),
               };
 
-              if (glob.isCandidate && !glob.isCandidate(dfspSrc, registrar)) {
-                continue;
+              if (glob.enhanceSource) {
+                const enhanced = glob.enhanceSource(dfspSrc, registrar);
+                if (!enhanced) continue; // undefined means skip this file for this registrar
+                dfspSrc = enhanced;
               }
+
               const registration = await registrar.pluginRegistration(
                 dfspSrc,
                 // deno-lint-ignore require-await
@@ -169,7 +173,7 @@ export class FileSystemRoutesPlugins implements extn.InactivePluginsSupplier {
                     issues: [{
                       source,
                       diagnostics: [
-                        `invalid plugin: ${source.systemID}`,
+                        `invalid plugin: ${source.registrarID} ${source.systemID}`,
                       ],
                     }],
                   };

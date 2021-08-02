@@ -355,23 +355,28 @@ export class DenoModuleRegistrar<PM extends extn.PluginsManager>
       result.untyped[key] = value;
       if (typeof value === "string") {
         switch (key) {
+          case "registrarID":
+            // if module has `export const registrarID = "X"` then use that as the registrarID
+            result.source.registrarID = value;
+            break;
+
           case "systemID":
-            // if module has `export const systemID = "X"` then use that as the graphName
+            // if module has `export const systemID = "X"` then use that as the systemID
             result.source.systemID = value;
             break;
 
           case "friendlyName":
-            // if module has `export const friendlyName = "X"` then use that as the graphName
+            // if module has `export const friendlyName = "X"` then use that as the friendlyName
             result.source.friendlyName = value;
             break;
 
           case "abbreviatedName":
-            // if module has `export const abbreviatedName = "X"` then use that as the graphName
+            // if module has `export const abbreviatedName = "X"` then use that as the abbreviatedName
             result.source.abbreviatedName = value;
             break;
 
           case "graphNodeName":
-            // if module has `export const graphNodeName = "X"` then use that as the graphName
+            // if module has `export const graphNodeName = "X"` then use that as the graphNodeName
             result.source.graphNodeName = value;
             break;
         }

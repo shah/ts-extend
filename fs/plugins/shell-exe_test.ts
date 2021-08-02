@@ -96,7 +96,11 @@ Deno.test(`TestShellExeFilesPluginsManager should not have any invalid plugins`,
     console.log(`${invalidCount} Invalid Plugins (investigate why)`);
     console.log("==========================================================");
     for (const ip of pluginsMgr.invalidPlugins) {
-      console.log(`${colors.yellow(ip.source.systemID)}`);
+      console.log(
+        `${colors.green(ip.source.registrarID)} ${
+          colors.yellow(ip.source.systemID)
+        }`,
+      );
       console.log(ip.issues.flatMap((i) => i.diagnostics).join("\n"));
     }
     console.log("==========================================================");
