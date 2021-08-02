@@ -32,20 +32,6 @@ export class TestShellExeFilesPluginsManager extends extn.TypicalPluginsManager
     path.dirname(import.meta.url).substr("file://".length),
   );
   readonly shellFileRegistrar = new shfsp.ShellFileRegistrar(this);
-  readonly fileExtnsRegistrar: mod.FileSourcePluginRegistrar<this>;
-
-  constructor() {
-    super();
-    this.fileExtnsRegistrar = new mod.FileSourcePluginRegistrar(
-      this,
-      (source) => {
-        if (source.absPathAndFileName.endsWith(".sh")) {
-          return this.shellFileRegistrar;
-        }
-        return undefined;
-      },
-    );
-  }
 
   pluginByAbbrevName<P extends extn.Plugin>(
     name: string,
@@ -70,9 +56,12 @@ window.shFstestPluginsManagerSingleton = extn.SingletonsManager
       const fsrPlugins = new mod.FileSystemRoutesPlugins();
       await fsrPlugins.acquire([
         {
-          registrars: [pm.fileExtnsRegistrar],
           discoveryPath: path.join(pm.testModuleLocalFsPath, "..", "test"),
-          globs: [{ registrarID: "test-shell", glob: "**/*.plugin.sh" }],
+          globs: [{
+            registrars: [pm.shellFileRegistrar],
+            globID: "test-shell",
+            glob: "**/*.plugin.sh",
+          }],
         },
       ]);
       await pm.activate({ pluginsAcquirers: [fsrPlugins] });

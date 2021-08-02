@@ -30,29 +30,22 @@ export class TestMultipleFilesPluginsManager extends extn.TypicalPluginsManager
     this,
     this.telemetry,
   );
-  readonly fileExtnsRegistrar: mod.FileSourcePluginRegistrar<this>;
-
-  constructor() {
-    super();
-    this.fileExtnsRegistrar = new mod.FileSourcePluginRegistrar(
-      this,
-      (source) => {
-        if (source.absPathAndFileName.endsWith(".ts")) {
-          return this.dmfr;
-        }
-        return undefined;
-      },
-      new shfsp.ShellFileRegistrar(this),
-    );
-  }
+  readonly shfr = new shfsp.ShellFileRegistrar(this);
 
   async init() {
     const fsrPlugins = new mod.FileSystemRoutesPlugins();
     await fsrPlugins.acquire([
       {
-        registrars: [this.fileExtnsRegistrar],
         discoveryPath: path.join(this.testModuleLocalFsPath, "test"),
-        globs: [{ registrarID: "test-multiple-*", glob: "**/*.plugin.*" }], // TODO: for each glob allow nature, etc. to be adjusted
+        globs: [{
+          registrars: [this.dmfr],
+          globID: "test-multiple-*",
+          glob: "**/*.plugin.{js,ts}",
+        }, {
+          registrars: [this.shfr],
+          globID: "test-shell",
+          glob: "**/*.plugin.sh",
+        }],
       },
     ]);
     const staticPlugins = new dp.StaticPlugins(

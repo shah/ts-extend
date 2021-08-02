@@ -36,28 +36,17 @@ export class TestDenoFilesPluginsManager extends extn.TypicalPluginsManager
     this,
     this.telemetry,
   );
-  readonly fileExtnsRegistrar: mod.FileSourcePluginRegistrar<this>;
-
-  constructor() {
-    super();
-    this.fileExtnsRegistrar = new mod.FileSourcePluginRegistrar(
-      this,
-      (source) => {
-        if (source.absPathAndFileName.endsWith(".ts")) {
-          return this.dmfr;
-        }
-        return undefined;
-      },
-    );
-  }
 
   async init() {
     const fsrPlugins = new mod.FileSystemRoutesPlugins();
     await fsrPlugins.acquire([
       {
-        registrars: [this.fileExtnsRegistrar],
         discoveryPath: path.join(this.testModuleLocalFsPath, "..", "test"),
-        globs: [{ registrarID: "test-deno", glob: "**/*.plugin.{js,ts}" }], // TODO: for each glob allow nature, etc. to be adjusted
+        globs: [{
+          registrars: [this.dmfr],
+          globID: "test-deno",
+          glob: "**/*.plugin.{js,ts}",
+        }],
       },
     ]);
     const staticPlugins = new dp.StaticPlugins(
