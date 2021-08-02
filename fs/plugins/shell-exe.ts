@@ -1,5 +1,6 @@
-import { cxg, extn, path, shell } from "./deps.ts";
-import * as fs from "./file-sys-plugin.ts";
+import { cxg, extn, path, shell } from "../deps.ts";
+import * as shPlugin from "../../plugins/shell-exe.ts";
+import * as fs from "../file-sys-plugin.ts";
 
 export interface ExecutableDeterminer {
   (path: string): false | string[];
@@ -7,6 +8,7 @@ export interface ExecutableDeterminer {
 
 export class ShellFileRegistrar<PM extends extn.PluginsManager>
   implements extn.PluginRegistrar {
+  readonly registrarID = "ShellFileRegistrar";
   readonly isExecutable: ExecutableDeterminer;
 
   constructor(
@@ -70,7 +72,7 @@ export class ShellFileRegistrar<PM extends extn.PluginsManager>
         ? options?.graphNode({ nature, source }, defaultGraphNode)
         : defaultGraphNode;
       const plugin:
-        & extn.ShellExePlugin
+        & shPlugin.ShellExePlugin
         & extn.PluginGraphNodeSupplier
         & extn.PluginGraphContributor = {
           source,
@@ -81,7 +83,7 @@ export class ShellFileRegistrar<PM extends extn.PluginsManager>
             return graphNode;
           },
           execute: async (seac) => {
-            const pc: extn.ShellExePluginSupplier = {
+            const pc: shPlugin.ShellExePluginSupplier = {
               plugin,
             };
             const cmd = seac.options.shellCmdEnhancer
@@ -100,7 +102,7 @@ export class ShellFileRegistrar<PM extends extn.PluginsManager>
                 ? seac.options.runShellCmdOpts(pc)
                 : undefined,
             );
-            const actionResult: extn.ShellExeActionResult = {
+            const actionResult: shPlugin.ShellExeActionResult = {
               rscResult,
             };
             metric.measure();

@@ -1,7 +1,7 @@
-import { govnSvcTelemetry as telem, safety, shell } from "./deps.ts";
-import * as fr from "./framework.ts";
+import { govnSvcTelemetry as telem, safety, shell } from "../core/deps.ts";
+import * as extn from "../core/mod.ts";
 
-export interface ShellExePluginSupplier extends fr.PluginSupplier {
+export interface ShellExePluginSupplier extends extn.PluginSupplier {
   readonly plugin: ShellExePlugin;
 }
 
@@ -46,8 +46,8 @@ export interface ShellExeActionOptions {
   readonly runShellCmdOpts?: PrepareShellCmdRunOptions;
 }
 
-export interface ShellExeActionContext<PM extends fr.PluginsManager>
-  extends fr.PluginsManagerSupplier<PM> {
+export interface ShellExeActionContext<PM extends extn.PluginsManager>
+  extends extn.PluginsManagerSupplier<PM> {
   readonly telemetry: ShellExeActionTelemetry;
   readonly options: ShellExeActionOptions;
 }
@@ -60,9 +60,9 @@ export const isShellExeActionResult = safety.typeGuard<ShellExeActionResult>(
   "rscResult",
 );
 
-export interface ShellExePlugin extends fr.Plugin {
+export interface ShellExePlugin extends extn.Plugin {
   readonly execute: (
-    seac: ShellExeActionContext<fr.PluginsManager>,
+    seac: ShellExeActionContext<extn.PluginsManager>,
   ) => Promise<ShellExeActionResult>;
 }
 

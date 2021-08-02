@@ -1,21 +1,28 @@
-import { colors, cxg, govnSvcTelemetry as telem, safety } from "./deps.ts";
-import * as fr from "./framework.ts";
-import { SingletonsManager, SingletonSync } from "./singleton.ts";
+import {
+  colors,
+  cxg,
+  govnSvcTelemetry as telem,
+  safety,
+} from "../core/deps.ts";
+import * as extn from "../core/mod.ts";
 
 declare global {
   interface Window {
-    readonly cachedModulesSingleton: SingletonSync<Map<URL, ModuleCacheEntry>>;
+    readonly cachedModulesSingleton: extn.SingletonSync<
+      Map<URL, ModuleCacheEntry>
+    >;
     readonly cachedModules: Map<URL, ModuleCacheEntry>;
   }
 }
 
-export interface DenoModulePluginSource extends fr.PluginSource {
+export interface DenoModulePluginSource extends extn.PluginSource {
   readonly moduleEntryPoint: unknown;
 }
 
 export const isDenoModulePluginSource = safety.typeGuard<
   DenoModulePluginSource
 >(
+  "registrarID",
   "systemID",
   "friendlyName",
   "abbreviatedName",
@@ -23,13 +30,13 @@ export const isDenoModulePluginSource = safety.typeGuard<
   "moduleEntryPoint",
 );
 
-export interface DenoModulePluginNature<PM extends fr.PluginsManager>
-  extends fr.PluginNature {
+export interface DenoModulePluginNature<PM extends extn.PluginsManager>
+  extends extn.PluginNature {
   readonly moduleMetaData: DenoModuleMetaData<PM>;
 }
 
 export const isDenoModulePluginNature = safety.typeGuard<
-  DenoModulePluginNature<fr.PluginsManager>
+  DenoModulePluginNature<extn.PluginsManager>
 >(
   "identity",
   "moduleMetaData",
@@ -41,19 +48,20 @@ export interface ModuleCacheEntry {
 }
 
 // cast to override the readonly attribute (it's OK for us to write the value)
-(window.cachedModulesSingleton as SingletonSync<Map<URL, ModuleCacheEntry>>) =
-  SingletonsManager.globalInstance()
-    .singletonSync(
-      () => {
-        return new Map<URL, ModuleCacheEntry>();
-      },
-    );
+(window.cachedModulesSingleton as extn.SingletonSync<
+  Map<URL, ModuleCacheEntry>
+>) = extn.SingletonsManager.globalInstance()
+  .singletonSync(
+    () => {
+      return new Map<URL, ModuleCacheEntry>();
+    },
+  );
 
 // cast to override the readonly attribute (it's OK for us to write the value)
 (window.cachedModules as Map<URL, ModuleCacheEntry>) = window
   .cachedModulesSingleton.value();
 
-export interface DenoModulePlugin extends fr.Plugin {
+export interface DenoModulePlugin extends extn.Plugin {
   readonly module: unknown;
 }
 
@@ -64,22 +72,22 @@ export const isDenoModulePlugin = safety.typeGuard<DenoModulePlugin>(
 );
 
 // deno-lint-ignore no-empty-interface
-export interface DenoModuleActivateContext<PM extends fr.PluginsManager>
-  extends fr.ActivateContext<PM> {
+export interface DenoModuleActivateContext<PM extends extn.PluginsManager>
+  extends extn.ActivateContext<PM> {
 }
 
 // deno-lint-ignore no-empty-interface
-export interface DenoModuleDeactivateContext<PM extends fr.PluginsManager>
-  extends fr.DeactivateContext<PM> {
+export interface DenoModuleDeactivateContext<PM extends extn.PluginsManager>
+  extends extn.DeactivateContext<PM> {
 }
 
 // deno-lint-ignore no-empty-interface
-export interface DenoModuleActivateResult extends fr.ActivateResult {
+export interface DenoModuleActivateResult extends extn.ActivateResult {
 }
 
-export interface DenoModuleActivatable<PM extends fr.PluginsManager>
+export interface DenoModuleActivatable<PM extends extn.PluginsManager>
   extends
-    fr.Activatable<
+    extn.Activatable<
       PM,
       DenoModuleActivateContext<PM>,
       DenoModuleDeactivateContext<PM>
@@ -92,9 +100,9 @@ export interface DenoModuleActivatable<PM extends fr.PluginsManager>
   ) => Promise<void>;
 }
 
-export interface DenoModuleActivatableSync<PM extends fr.PluginsManager>
+export interface DenoModuleActivatableSync<PM extends extn.PluginsManager>
   extends
-    fr.ActivatableSync<
+    extn.ActivatableSync<
       PM,
       DenoModuleActivateContext<PM>,
       DenoModuleDeactivateContext<PM>
@@ -107,7 +115,7 @@ export interface DenoModuleActivatableSync<PM extends fr.PluginsManager>
   ) => Promise<void>;
 }
 
-export function isDenoModuleActivatablePlugin<PM extends fr.PluginsManager>(
+export function isDenoModuleActivatablePlugin<PM extends extn.PluginsManager>(
   o: unknown,
 ): o is DenoModulePlugin & DenoModuleActivatable<PM> {
   if (isDenoModulePlugin(o)) {
@@ -116,7 +124,9 @@ export function isDenoModuleActivatablePlugin<PM extends fr.PluginsManager>(
   return false;
 }
 
-export function isDenoModuleActivatableSyncPlugin<PM extends fr.PluginsManager>(
+export function isDenoModuleActivatableSyncPlugin<
+  PM extends extn.PluginsManager,
+>(
   o: unknown,
 ): o is DenoModulePlugin & DenoModuleActivatableSync<PM> {
   if (isDenoModulePlugin(o)) {
@@ -126,13 +136,15 @@ export function isDenoModuleActivatableSyncPlugin<PM extends fr.PluginsManager>(
   return false;
 }
 
-export interface DenoModuleDynamicPluginSupplier<PM extends fr.PluginsManager> {
+export interface DenoModuleDynamicPluginSupplier<
+  PM extends extn.PluginsManager,
+> {
   (
     moduleEntryPoint: unknown,
     nature: DenoModulePluginNature<PM>,
     registrar: DenoModuleRegistrar<PM>,
-    options?: fr.PluginRegistrationOptions,
-  ): Promise<fr.PluginRegistration>;
+    options?: extn.PluginRegistrationOptions,
+  ): Promise<extn.PluginRegistration>;
 }
 
 export interface DenoModuleScalarValueGuard<T> {
@@ -149,12 +161,12 @@ export const isDenoModuleScalarValueGuard = safety.typeGuard<
  * a Deno module. Plugin details defined in this interface may be overridden
  * by a Deno module plugin.
  */
-export interface DenoModuleMetaData<PM extends fr.PluginsManager> {
-  nature: fr.MutableOptionalPluginNature;
-  source: fr.MutableOptionalPluginSource;
+export interface DenoModuleMetaData<PM extends extn.PluginsManager> {
+  nature: extn.MutableOptionalPluginNature;
+  source: extn.MutableOptionalPluginSource;
   graphNode?: (
     metaData: DenoModuleMetaData<PM>,
-  ) => fr.PluginGraphNode;
+  ) => extn.PluginGraphNode;
   activate?: (
     ac: DenoModuleActivateContext<PM>,
   ) => Promise<DenoModuleActivateResult>;
@@ -167,14 +179,14 @@ export interface DenoModuleMetaData<PM extends fr.PluginsManager> {
 }
 
 export interface TypeScriptModuleRegistrationSupplier<
-  PM extends fr.PluginsManager,
+  PM extends extn.PluginsManager,
 > {
   (
     manager: PM,
     potential: DenoModulePlugin,
     metaData: DenoModuleMetaData<PM>,
-    options?: fr.PluginRegistrationOptions,
-  ): Promise<fr.ValidPluginRegistration | fr.InvalidPluginRegistration>;
+    options?: extn.PluginRegistrationOptions,
+  ): Promise<extn.ValidPluginRegistration | extn.InvalidPluginRegistration>;
 }
 
 export interface DenoFunctionModulePlugin extends DenoModulePlugin {
@@ -204,7 +216,7 @@ export function isDenoFunctionModulePlugin(
 export type DenoFunctionModuleHandlerResult = unknown;
 
 export interface DenoFunctionModuleHandler {
-  (ps: fr.PluginSupplier):
+  (ps: extn.PluginSupplier):
     | Promise<DenoFunctionModuleHandlerResult>
     | DenoFunctionModuleHandlerResult
     | Promise<
@@ -289,11 +301,11 @@ export class TypicalDenoModuleRegistrarTelemetry
   }
 }
 
-export class StaticPlugins<PM extends fr.PluginsManager>
-  implements fr.InactivePluginsSupplier {
-  readonly validInactivePlugins: fr.ValidPluginRegistration[] = [];
-  readonly invalidPlugins: fr.InvalidPluginRegistration[] = [];
-  readonly unknownPlugins: fr.PluginRegistration[] = [];
+export class StaticPlugins<PM extends extn.PluginsManager>
+  implements extn.InactivePluginsSupplier {
+  readonly validInactivePlugins: extn.ValidPluginRegistration[] = [];
+  readonly invalidPlugins: extn.InvalidPluginRegistration[] = [];
+  readonly unknownPlugins: extn.PluginRegistration[] = [];
 
   constructor(readonly registrar: DenoModuleRegistrar<PM>) {
   }
@@ -313,9 +325,9 @@ export class StaticPlugins<PM extends fr.PluginsManager>
         };
       },
     );
-    if (fr.isValidPluginRegistration(registration)) {
+    if (extn.isValidPluginRegistration(registration)) {
       this.validInactivePlugins.push(registration);
-    } else if (fr.isInvalidPluginRegistration(registration)) {
+    } else if (extn.isInvalidPluginRegistration(registration)) {
       this.invalidPlugins.push(registration);
     } else {
       this.unknownPlugins.push(registration);
@@ -323,8 +335,9 @@ export class StaticPlugins<PM extends fr.PluginsManager>
   }
 }
 
-export class DenoModuleRegistrar<PM extends fr.PluginsManager>
-  implements fr.PluginRegistrar {
+export class DenoModuleRegistrar<PM extends extn.PluginsManager>
+  implements extn.PluginRegistrar {
+  readonly registrarID = "DenoModuleRegistrar";
   constructor(
     readonly manager: PM,
     readonly telemetry: ImportModuleTelemetrySupplier,
@@ -384,7 +397,7 @@ export class DenoModuleRegistrar<PM extends fr.PluginsManager>
             // TODO: enhance type checking because a function could be defined incorrectly at runtime
             result.graphNode = value as ((
               metaData: DenoModuleMetaData<PM>,
-            ) => fr.PluginGraphNode);
+            ) => extn.PluginGraphNode);
             break;
 
           case "activate":
@@ -409,7 +422,7 @@ export class DenoModuleRegistrar<PM extends fr.PluginsManager>
 
   moduleNature(
     metaData: DenoModuleMetaData<PM>,
-    identity?: fr.PluginNatureIdentity,
+    identity?: extn.PluginNatureIdentity,
   ): DenoModulePluginNature<PM> {
     return {
       identity: identity || "deno-module",
@@ -421,21 +434,21 @@ export class DenoModuleRegistrar<PM extends fr.PluginsManager>
   // deno-lint-ignore require-await
   async validate(
     potential: DenoModulePlugin,
-    options?: fr.PluginRegistrationOptions,
-  ): Promise<fr.ValidPluginRegistration | fr.InvalidPluginRegistration> {
+    options?: extn.PluginRegistrationOptions,
+  ): Promise<extn.ValidPluginRegistration | extn.InvalidPluginRegistration> {
     // deno-lint-ignore no-explicit-any
     const module = potential.module as any;
     const moduleDefault = module.default;
     let guardFailedDiagnostic: string | undefined;
 
     // if we've already created a valid plugin (e.g. from cache)
-    if (fr.isValidPluginRegistration(moduleDefault)) {
+    if (extn.isValidPluginRegistration(moduleDefault)) {
       return moduleDefault;
     }
 
     // if an entire plugin is pre-constructed
     if (isDenoModulePlugin(moduleDefault)) {
-      const result: fr.ValidPluginRegistration = {
+      const result: extn.ValidPluginRegistration = {
         plugin: moduleDefault,
         source: moduleDefault.source,
       };
@@ -457,7 +470,7 @@ export class DenoModuleRegistrar<PM extends fr.PluginsManager>
         isGenerator,
       };
       if (!options?.guard || options.guard.guard(plugin)) {
-        const result: fr.ValidPluginRegistration = {
+        const result: extn.ValidPluginRegistration = {
           source: potential.source,
           plugin,
         };
@@ -472,7 +485,7 @@ export class DenoModuleRegistrar<PM extends fr.PluginsManager>
         scalar: moduleDefault,
       };
       if (!options?.guard || options.guard.guard(plugin)) {
-        const result: fr.ValidPluginRegistration = {
+        const result: extn.ValidPluginRegistration = {
           source: potential.source,
           plugin,
         };
@@ -482,7 +495,7 @@ export class DenoModuleRegistrar<PM extends fr.PluginsManager>
       guardFailedDiagnostic = options.guard.guardFailureDiagnostic(plugin);
     }
 
-    const result: fr.InvalidPluginRegistration = {
+    const result: extn.InvalidPluginRegistration = {
       source: potential.source,
       issues: [{
         source: potential.source,
@@ -494,8 +507,8 @@ export class DenoModuleRegistrar<PM extends fr.PluginsManager>
 
   // deno-lint-ignore require-await
   async pluginApplicability(
-    source: fr.PluginSource,
-  ): Promise<fr.PluginRegistrarSourceApplicability> {
+    source: extn.PluginSource,
+  ): Promise<extn.PluginRegistrarSourceApplicability> {
     if (isDenoModulePluginSource(source)) {
       return { isApplicable: true };
     }
@@ -503,13 +516,13 @@ export class DenoModuleRegistrar<PM extends fr.PluginsManager>
   }
 
   async pluginRegistration(
-    ps: fr.PluginSource,
+    ps: extn.PluginSource,
     onInvalid: (
-      src: fr.PluginSource,
-      suggested?: fr.InvalidPluginRegistration,
-    ) => Promise<fr.PluginRegistration>,
-    options?: fr.PluginRegistrationOptions,
-  ): Promise<fr.PluginRegistration> {
+      src: extn.PluginSource,
+      suggested?: extn.InvalidPluginRegistration,
+    ) => Promise<extn.PluginRegistration>,
+    options?: extn.PluginRegistrationOptions,
+  ): Promise<extn.PluginRegistration> {
     const applicable = await this.pluginApplicability(ps);
     const dms = applicable.redirectSource || ps;
     if (isDenoModulePluginSource(dms)) {
@@ -519,7 +532,7 @@ export class DenoModuleRegistrar<PM extends fr.PluginsManager>
           const defaultNature: DenoModulePluginNature<PM> = this.moduleNature(
             metaData,
           );
-          let registration: fr.PluginRegistration;
+          let registration: extn.PluginRegistration;
           if (metaData.plugin) {
             // a deno module can provide an exported async module method called
             // plugin() which returns a registration record dynamically
@@ -539,14 +552,14 @@ export class DenoModuleRegistrar<PM extends fr.PluginsManager>
               : defaultNature;
             const defaultGraphNode = metaData.graphNode
               ? metaData.graphNode(metaData)
-              : new cxg.Node<fr.Plugin>(source.graphNodeName);
+              : new cxg.Node<extn.Plugin>(source.graphNodeName);
             const graphNode = options?.graphNode
               ? options?.graphNode({ nature, source }, defaultGraphNode)
               : defaultGraphNode;
             const potential:
               & DenoModulePlugin
-              & fr.PluginGraphNodeSupplier
-              & fr.PluginGraphContributor = {
+              & extn.PluginGraphNodeSupplier
+              & extn.PluginGraphContributor = {
                 module: dms.moduleEntryPoint,
                 source,
                 graphNode,
@@ -559,13 +572,13 @@ export class DenoModuleRegistrar<PM extends fr.PluginsManager>
             registration = await this.validate(potential);
           }
           if (
-            options?.transform && fr.isValidPluginRegistration(registration)
+            options?.transform && extn.isValidPluginRegistration(registration)
           ) {
             return options.transform(registration);
           }
           return registration;
         } else {
-          const result: fr.InvalidPluginRegistration = {
+          const result: extn.InvalidPluginRegistration = {
             source: ps,
             issues: [{
               source: dms,
@@ -577,7 +590,7 @@ export class DenoModuleRegistrar<PM extends fr.PluginsManager>
           return result;
         }
       } catch (err) {
-        const result: fr.InvalidPluginRegistration = {
+        const result: extn.InvalidPluginRegistration = {
           source: ps,
           issues: [{
             source: dms,
@@ -587,7 +600,7 @@ export class DenoModuleRegistrar<PM extends fr.PluginsManager>
         return result;
       }
     }
-    const result: fr.InvalidPluginRegistration = {
+    const result: extn.InvalidPluginRegistration = {
       source: ps,
       issues: [{
         source: dms,

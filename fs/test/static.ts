@@ -43,6 +43,7 @@ export const custom:
     },
     nature: { identity: `deno-${url.protocol}-${url.hostname}` },
     source: {
+      registrarID: "static",
       systemID: import.meta.url,
       abbreviatedName: "static",
       friendlyName: url.href,

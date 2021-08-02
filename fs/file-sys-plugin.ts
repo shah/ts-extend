@@ -17,6 +17,7 @@ export interface FileSystemPluginSource extends extn.PluginSource {
 export const isFileSystemPluginSource = safety.typeGuard<
   FileSystemPluginSource
 >(
+  "registrarID",
   "absPathAndFileName",
   "fileNameExtension",
   "systemID",
@@ -31,6 +32,8 @@ export interface FileSystemPluginSourceRegistrarStrategy {
 
 export class FileSourcePluginRegistrar<PM extends extn.PluginsManager>
   implements extn.PluginRegistrar {
+  readonly registrarID = "FileSourcePluginRegistrar";
+
   constructor(
     readonly manager: PM,
     readonly sourceNameRegistrar: FileSystemPluginSourceRegistrarStrategy,
@@ -94,7 +97,12 @@ export class FileSourcePluginRegistrar<PM extends extn.PluginsManager>
 
 export interface DiscoverFileSystemRouteGlob
   extends extn.PluginRegistrationOptions {
+  readonly registrarID: extn.PluginRegistrarIdentity;
   readonly glob: FileSystemGlob;
+  readonly isCandidate?: (
+    dfspSrc: DiscoverFileSystemPluginSource,
+    registrar: extn.PluginRegistrar,
+  ) => boolean;
 }
 
 export interface DiscoverFileSystemRoute {
@@ -136,18 +144,22 @@ export class FileSystemRoutesPlugins implements extn.InactivePluginsSupplier {
           })
         ) {
           if (we.isFile) {
-            const dfspSrc: DiscoverFileSystemPluginSource = {
-              route,
-              glob: glob.glob,
-              systemID: we.path,
-              friendlyName: path.relative(route.discoveryPath, we.path),
-              abbreviatedName: path.basename(we.path),
-              absPathAndFileName: we.path,
-              fileNameExtension: path.extname(we.path),
-              graphNodeName: path.relative(route.discoveryPath, we.path),
-            };
-
             for (const registrar of route.registrars) {
+              const dfspSrc: DiscoverFileSystemPluginSource = {
+                registrarID: `${registrar.registrarID}::${glob.registrarID}`,
+                route,
+                glob: glob.glob,
+                systemID: we.path,
+                friendlyName: path.relative(route.discoveryPath, we.path),
+                abbreviatedName: path.basename(we.path),
+                absPathAndFileName: we.path,
+                fileNameExtension: path.extname(we.path),
+                graphNodeName: path.relative(route.discoveryPath, we.path),
+              };
+
+              if (glob.isCandidate && !glob.isCandidate(dfspSrc, registrar)) {
+                continue;
+              }
               const registration = await registrar.pluginRegistration(
                 dfspSrc,
                 // deno-lint-ignore require-await
@@ -157,7 +169,7 @@ export class FileSystemRoutesPlugins implements extn.InactivePluginsSupplier {
                     issues: [{
                       source,
                       diagnostics: [
-                        `invalid plugin: ${JSON.stringify(source)}`,
+                        `invalid plugin: ${source.systemID}`,
                       ],
                     }],
                   };

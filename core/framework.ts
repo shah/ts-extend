@@ -67,7 +67,10 @@ export interface PluginRegistrationOptions {
   ) => PluginGraphNode;
 }
 
+export type PluginRegistrarIdentity = string;
+
 export interface PluginRegistrar {
+  readonly registrarID: PluginRegistrarIdentity;
   readonly pluginApplicability: (
     src: PluginSource,
   ) => Promise<PluginRegistrarSourceApplicability>;
@@ -134,6 +137,7 @@ export type PluginGraphNodeIdentity = string;
  * plugins but should not be used after initialization.
  */
 export interface MutableOptionalPluginSource {
+  registrarID?: PluginRegistrarIdentity;
   systemID?: PluginIdentity;
   friendlyName?: PluginIdentity;
   abbreviatedName?: PluginIdentity;
@@ -143,6 +147,7 @@ export interface MutableOptionalPluginSource {
 export type PluginSource = Readonly<Required<MutableOptionalPluginSource>>;
 
 export const isPluginSource = safety.typeGuard<PluginSource>(
+  "registrarID",
   "systemID",
   "friendlyName",
   "abbreviatedName",

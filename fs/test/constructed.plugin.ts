@@ -42,6 +42,7 @@ export const constructed:
     },
     nature: { identity: "deno-custom" },
     source: {
+      registrarID: "deno-custom",
       systemID: "pre-constructed system ID",
       abbreviatedName: "constructed",
       friendlyName: "pre-constructed",

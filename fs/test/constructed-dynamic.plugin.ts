@@ -1,16 +1,17 @@
 import { cxg, extn } from "../deps.ts";
+import * as dsp from "../../plugins/module.ts";
 import * as govn from "./governance.ts";
 
 export const scalarValue =
   "this is the default value, which can be different from the plugin";
 
-export const plugin: extn.DenoModuleDynamicPluginSupplier<extn.PluginsManager> =
+export const plugin: dsp.DenoModuleDynamicPluginSupplier<extn.PluginsManager> =
   // deno-lint-ignore require-await
   async (moduleEntryPoint, nature) => {
     const graphNodeName = "pre-constructed dynamic system ID";
     const potential:
       & govn.TestPlugin
-      & extn.DenoScalarModulePlugin<string>
+      & dsp.DenoScalarModulePlugin<string>
       & govn.TestActionSupplier
       & govn.TestPluginActivatable
       & extn.PluginGraphContributor
@@ -49,6 +50,7 @@ export const plugin: extn.DenoModuleDynamicPluginSupplier<extn.PluginsManager> =
         },
         nature: { ...nature, identity: "deno-dynamic" },
         source: {
+          registrarID: "deno-dynamic",
           systemID: "pre-constructed dynamic system ID",
           abbreviatedName: "constructed dynamic",
           friendlyName: "pre-constructed dynamic",

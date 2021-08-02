@@ -1,19 +1,22 @@
-import { extn, govnSvcTelemetry as telem, path } from "./deps.ts";
-import * as fs from "./file-sys-plugin.ts";
+import { extn, govnSvcTelemetry as telem, path } from "../deps.ts";
+import * as denoPlugin from "../../plugins/module.ts";
+import * as fs from "../file-sys-plugin.ts";
 
 export class DenoModuleFileRegistrar<PM extends extn.PluginsManager>
   implements extn.PluginRegistrar {
-  readonly denoModuleRegistrar: extn.DenoModuleRegistrar<PM>;
-  readonly denoModulesTelemetry: extn.TypicalDenoModuleRegistrarTelemetry;
+  readonly registrarID = "DenoModuleFileRegistrar";
+  readonly denoModuleRegistrar: denoPlugin.DenoModuleRegistrar<PM>;
+  readonly denoModulesTelemetry: denoPlugin.TypicalDenoModuleRegistrarTelemetry;
 
   constructor(
     readonly manager: PM,
     readonly telemetry: telem.Instrumentation,
   ) {
-    this.denoModulesTelemetry = new extn.TypicalDenoModuleRegistrarTelemetry(
+    this.denoModulesTelemetry = new denoPlugin
+      .TypicalDenoModuleRegistrarTelemetry(
       telemetry,
     );
-    this.denoModuleRegistrar = new extn.DenoModuleRegistrar(
+    this.denoModuleRegistrar = new denoPlugin.DenoModuleRegistrar(
       manager,
       this.denoModulesTelemetry,
     );
@@ -44,11 +47,11 @@ export class DenoModuleFileRegistrar<PM extends extn.PluginsManager>
   ): Promise<extn.PluginRegistration> {
     if (fs.isFileSystemPluginSource(source)) {
       try {
-        const module = await extn.importCachedModule(
+        const module = await denoPlugin.importCachedModule(
           path.toFileUrl(source.absPathAndFileName),
           this.denoModulesTelemetry,
         );
-        const dms: extn.DenoModulePluginSource = {
+        const dms: denoPlugin.DenoModulePluginSource = {
           ...source,
           moduleEntryPoint: module,
         };

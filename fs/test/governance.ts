@@ -1,9 +1,10 @@
 import { extn, safety } from "../deps.ts";
+import * as dp from "../../plugins/module.ts";
 
-export type TestPlugin = extn.DenoModulePlugin;
+export type TestPlugin = dp.DenoModulePlugin;
 export type TestPluginSupplier = extn.PluginSupplier;
-export type TestPluginFunction = extn.DenoFunctionModuleHandler;
-export type TestPluginFunctionResult = extn.DenoFunctionModuleHandlerResult;
+export type TestPluginFunction = dp.DenoFunctionModuleHandler;
+export type TestPluginFunctionResult = dp.DenoFunctionModuleHandlerResult;
 
 // deno-lint-ignore no-empty-interface
 export interface TestPluginActivatable extends
