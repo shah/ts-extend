@@ -30,7 +30,7 @@ export class TestMultipleFilesPluginsManager extends extn.TypicalPluginsManager
     this,
     this.telemetry,
   );
-  readonly shfr = new shfsp.ShellFileRegistrar(this);
+  readonly shfr = new shfsp.ShellExeFileRegistrar(this);
 
   async init() {
     const fsrPlugins = new mod.FileSystemRoutesPlugins();

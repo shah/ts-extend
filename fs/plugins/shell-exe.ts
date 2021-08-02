@@ -6,7 +6,7 @@ export interface ExecutableDeterminer {
   (path: string): false | string[];
 }
 
-export class ShellFileRegistrar<PM extends extn.PluginsManager>
+export class ShellExeFileRegistrar<PM extends extn.PluginsManager>
   implements extn.PluginRegistrar {
   readonly registrarID = "ShellFileRegistrar";
   readonly isExecutable: ExecutableDeterminer;

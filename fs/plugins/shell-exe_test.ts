@@ -31,7 +31,7 @@ export class TestShellExeFilesPluginsManager extends extn.TypicalPluginsManager
     Deno.cwd(),
     path.dirname(import.meta.url).substr("file://".length),
   );
-  readonly shellFileRegistrar = new shfsp.ShellFileRegistrar(this);
+  readonly shellFileRegistrar = new shfsp.ShellExeFileRegistrar(this);
 
   pluginByAbbrevName<P extends extn.Plugin>(
     name: string,
