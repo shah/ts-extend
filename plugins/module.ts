@@ -62,6 +62,9 @@ export interface ModuleCacheEntry {
   .cachedModulesSingleton.value();
 
 export interface DenoModulePlugin extends extn.Plugin {
+  // TODO: increase type-safety
+  // readonly source: DenoModulePluginSource;
+  // readonly nature: DenoModulePluginNature<extn.PluginsManager>;
   readonly module: unknown;
 }
 
