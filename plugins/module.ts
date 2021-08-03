@@ -605,15 +605,12 @@ export class DenoModuleRegistrar<PM extends extn.PluginsManager>
         return result;
       }
     }
-    const result: extn.InvalidPluginRegistration = {
-      source: ps,
-      issues: [{
-        source: dms,
-        diagnostics: [
-          "DenoModuleRegistrar only knows how to register DenoModulePluginSource instances",
-        ],
-      }],
-    };
-    return onInvalid(dms, result);
+    return await onInvalid(
+      ps,
+      extn.typicalInvalidPluginRegistration(
+        dms,
+        "DenoModuleRegistrar only knows how to register DenoModulePluginSource instances",
+      ),
+    );
   }
 }

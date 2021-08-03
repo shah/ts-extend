@@ -68,15 +68,12 @@ export class DenoModuleFileRegistrar<PM extends extn.PluginsManager>
         return result;
       }
     }
-    const result: extn.InvalidPluginRegistration = {
-      source: source,
-      issues: [{
-        source: source,
-        diagnostics: [
-          "typeScriptFileRegistrar() only knows how to register file system sources",
-        ],
-      }],
-    };
-    return onInvalid(source, result);
+    return await onInvalid(
+      source,
+      extn.typicalInvalidPluginRegistration(
+        source,
+        "DenoModuleFileRegistrar only knows how to register FileSystemPluginSource instances",
+      ),
+    );
   }
 }

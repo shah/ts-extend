@@ -37,7 +37,6 @@ export class ShellExeFileRegistrar<PM extends extn.PluginsManager>
     return { isApplicable: false };
   }
 
-  // deno-lint-ignore require-await
   async pluginRegistration(
     source: extn.PluginSource,
     onInvalid: (
@@ -50,18 +49,13 @@ export class ShellExeFileRegistrar<PM extends extn.PluginsManager>
       const isExecutableCmd = this.isExecutable(source.absPathAndFileName);
       if (!isExecutableCmd) {
         const fi = Deno.statSync(source.absPathAndFileName);
-        const result: extn.InvalidPluginRegistration = {
+        return await onInvalid(
           source,
-          issues: [
-            {
-              source,
-              diagnostics: [
-                `source is not executable (executable bit not set?): file mode is ${fi.mode}}`,
-              ],
-            },
-          ],
-        };
-        return result;
+          extn.typicalInvalidPluginRegistration(
+            source,
+            `source is not executable (executable bit not set?): file mode is ${fi.mode}}`,
+          ),
+        );
       }
       const defaultNature = { identity: "shell-file-executable" };
       const nature = options?.nature
@@ -109,30 +103,26 @@ export class ShellExeFileRegistrar<PM extends extn.PluginsManager>
             return actionResult;
           },
         };
+
       if (!options?.guard || options.guard.guard(plugin)) {
         const result: extn.ValidPluginRegistration = { source, plugin };
         return options?.transform ? options?.transform(result) : result;
       }
-
-      const result: extn.InvalidPluginRegistration = {
+      return await onInvalid(
         source,
-        issues: [{
+        extn.typicalInvalidPluginRegistration(
           source,
-          diagnostics: [options.guard.guardFailureDiagnostic(plugin)],
-        }],
-      };
-      return onInvalid(source, result);
+          options.guard.guardFailureDiagnostic(plugin),
+        ),
+      );
     }
 
-    const result: extn.InvalidPluginRegistration = {
+    return await onInvalid(
       source,
-      issues: [{
+      extn.typicalInvalidPluginRegistration(
         source,
-        diagnostics: [
-          "shellFileRegistrar() only knows how to register file system sources",
-        ],
-      }],
-    };
-    return onInvalid(source, result);
+        "ShellExeFileRegistrar only knows how to register FileSystemPluginSource instances that are executable",
+      ),
+    );
   }
 }

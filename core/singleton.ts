@@ -1,4 +1,5 @@
 import * as metrics from "./metrics.ts";
+import * as typical from "./typical.ts";
 
 declare global {
   interface Window {
@@ -87,10 +88,10 @@ export class SingletonsManager implements Singletons {
       isActive: true,
       isValueAssigned: false,
       valueAccessedCount: 0,
-      lifecycleMetric: metrics.typicalMetric(),
+      lifecycleMetric: typical.typicalMetric(),
       value: async (onUndefinedValue) => {
         if (!result.isValueAssigned) {
-          result.constructionMetric = metrics.typicalMetric();
+          result.constructionMetric = typical.typicalMetric();
           result.assignedValue = await construct(result);
           result.isValueAssigned = true;
           result.constructionMetric.measure();
@@ -103,7 +104,7 @@ export class SingletonsManager implements Singletons {
       },
       destroy: async () => {
         if (result.isActive) {
-          result.destructionMetric = metrics.typicalMetric();
+          result.destructionMetric = typical.typicalMetric();
           if (options?.destroy) {
             await options.destroy(result);
           }
@@ -131,10 +132,10 @@ export class SingletonsManager implements Singletons {
       isActive: true,
       isValueAssigned: false,
       valueAccessedCount: 0,
-      lifecycleMetric: metrics.typicalMetric(),
+      lifecycleMetric: typical.typicalMetric(),
       value: (onUndefinedValue) => {
         if (!result.isValueAssigned) {
-          result.constructionMetric = metrics.typicalMetric();
+          result.constructionMetric = typical.typicalMetric();
           result.assignedValue = construct(result);
           result.isValueAssigned = true;
           result.constructionMetric.measure();
@@ -147,7 +148,7 @@ export class SingletonsManager implements Singletons {
       },
       destroy: () => {
         if (result.isActive) {
-          result.destructionMetric = metrics.typicalMetric();
+          result.destructionMetric = typical.typicalMetric();
           if (options?.destroy) {
             options.destroy(result);
           }
