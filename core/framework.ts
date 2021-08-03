@@ -88,7 +88,7 @@ export type PluginGraphNode = cxg.Node<Plugin>;
 export type PluginsGraph = cxg.CxGraph;
 
 export interface PluginsManagerActivationContext {
-  readonly pluginsAcquirers: InactivePluginsSupplier[];
+  readonly pluginsAcquirers: Iterable<InactivePluginsSupplier>;
   readonly beforeActivate?: (
     ac: ActivateContext<PluginsManager>,
   ) => Promise<void>;
@@ -105,8 +105,15 @@ export interface PluginsManagerDeactivationContext {
 }
 
 export interface PluginsManager {
-  readonly plugins: Plugin[];
+  readonly plugins: Iterable<Plugin>;
   readonly pluginsGraph: PluginsGraph;
+  readonly activatePlugin: (
+    plugin: Plugin | ValidPluginRegistration,
+  ) => Promise<Plugin | false>;
+  readonly deactivatePlugin: (
+    dr: Plugin,
+    pmdc?: PluginsManagerDeactivationContext,
+  ) => Promise<void>;
   readonly activate: (pmac: PluginsManagerActivationContext) => Promise<void>;
   readonly deactivate: (
     pmdc: PluginsManagerDeactivationContext,
@@ -194,11 +201,13 @@ export enum PluginActivationState {
 export interface ActivateContext<PM extends PluginsManager>
   extends PluginsManagerSupplier<PM> {
   readonly vpr: ValidPluginRegistration;
+  readonly pmac?: PluginsManagerActivationContext;
 }
 
 export interface DeactivateContext<PM extends PluginsManager>
   extends PluginsManagerSupplier<PM> {
   readonly plugin: Plugin;
+  readonly pmdc?: PluginsManagerDeactivationContext;
 }
 
 export interface MutableActivationStateSupplier {
@@ -209,6 +218,11 @@ export interface ActivateResult
   extends Readonly<MutableActivationStateSupplier> {
   readonly registration: ValidPluginRegistration | InvalidPluginRegistration;
 }
+
+export const isActivateResult = safety.typeGuard<ActivateResult>(
+  "registration",
+  "activationState",
+);
 
 export interface Activatable<
   PM extends PluginsManager,
@@ -256,6 +270,6 @@ export function isActivatableSyncPlugin<
 }
 
 export interface InactivePluginsSupplier {
-  readonly validInactivePlugins: ValidPluginRegistration[];
-  readonly invalidPlugins: InvalidPluginRegistration[];
+  readonly validInactivePlugins: Iterable<ValidPluginRegistration>;
+  readonly invalidPlugins: Iterable<InvalidPluginRegistration>;
 }

@@ -154,68 +154,94 @@ export abstract class TypicalPluginsManager implements fr.PluginsManager {
   constructor() {
   }
 
-  async activate(pmac: fr.PluginsManagerActivationContext): Promise<void> {
-    const activate = (ar: fr.ActivateResult) => {
-      if (fr.isValidPluginRegistration(ar.registration)) {
-        this.plugins.push(ar.registration.plugin);
-        // the ActivatablePlugin is immutable for others, but we're special
-        ((ar.registration
-          .plugin as unknown) as fr.MutableActivationStateSupplier)
-          .activationState = ar.activationState;
-      } else {
-        this.invalidPlugins.push(ar.registration);
-      }
-    };
+  registerInvalidPlugin(ipr: fr.InvalidPluginRegistration) {
+    this.invalidPlugins.push(ipr);
+    return ipr;
+  }
 
+  async activatePlugin(
+    pluginOrVPR: fr.Plugin | fr.ValidPluginRegistration,
+    pmac?: fr.PluginsManagerActivationContext,
+  ): Promise<fr.Plugin | false> {
+    let plugin: fr.Plugin;
+    let state = fr.PluginActivationState.Active;
+
+    if (fr.isValidPluginRegistration(pluginOrVPR)) {
+      const ac: fr.ActivateContext<this> = {
+        pluginsManager: this,
+        vpr: pluginOrVPR,
+        pmac,
+      };
+      if (pmac?.beforeActivate) await pmac.beforeActivate(ac);
+      let ar: fr.ActivateResult | undefined;
+      if (fr.isActivatablePlugin(pluginOrVPR.plugin)) {
+        ar = await pluginOrVPR.plugin.activate(ac);
+      } else if (fr.isActivatableSyncPlugin(pluginOrVPR.plugin)) {
+        ar = pluginOrVPR.plugin.activateSync(ac);
+      }
+      if (ar) {
+        if (fr.isInvalidPluginRegistration(ar.registration)) {
+          this.registerInvalidPlugin(ar.registration);
+          return false;
+        }
+        plugin = ar.registration.plugin;
+        state = ar.activationState;
+      } else {
+        plugin = pluginOrVPR.plugin;
+      }
+    } else {
+      plugin = pluginOrVPR;
+    }
+
+    this.plugins.push(plugin);
+    if (fr.isPluginGraphContributor(plugin)) {
+      plugin.activateGraphNode(this.pluginsGraph);
+    }
+
+    // the ActivatablePlugin is immutable for others, but we're special
+    ((plugin as unknown) as fr.MutableActivationStateSupplier).activationState =
+      state;
+    if (pmac?.afterActivate) await pmac.afterActivate(plugin);
+    return plugin;
+  }
+
+  async deactivatePlugin(
+    plugin: fr.Plugin,
+    pmdc?: fr.PluginsManagerDeactivationContext,
+  ): Promise<void> {
+    const dac: fr.DeactivateContext<this> = { pluginsManager: this, plugin };
+    if (pmdc?.beforeDeactivate) await pmdc.beforeDeactivate(dac);
+    if (fr.isActivatablePlugin(plugin)) {
+      await plugin.deactivate(dac);
+    } else if (fr.isActivatableSyncPlugin(plugin)) {
+      plugin.deactivateSync(dac);
+    }
+    if (
+      fr.isPluginGraphContributor(dac.plugin) &&
+      dac.plugin.deactivateGraphNode
+    ) {
+      dac.plugin.deactivateGraphNode(this.pluginsGraph);
+    }
+    // the ActivatablePlugin is immutable for others, but we're special
+    ((plugin as unknown) as fr.MutableActivationStateSupplier)
+      .activationState = fr.PluginActivationState.Inactive;
+    if (pmdc?.afterDeactivate) await pmdc?.afterDeactivate(dac);
+  }
+
+  async activate(pmac: fr.PluginsManagerActivationContext): Promise<void> {
     for (const acquired of pmac.pluginsAcquirers) {
       for (const vpr of acquired.validInactivePlugins) {
-        const ac: fr.ActivateContext<this> = {
-          pluginsManager: this,
-          vpr,
-        };
-        if (pmac.beforeActivate) await pmac.beforeActivate(ac);
-        if (fr.isActivatablePlugin(ac.vpr.plugin)) {
-          activate(await ac.vpr.plugin.activate(ac));
-        } else if (fr.isActivatableSyncPlugin(ac.vpr.plugin)) {
-          activate(ac.vpr.plugin.activateSync(ac));
-        } else {
-          // not a typescript module or no activation hook requested, no special activation
-          this.plugins.push(ac.vpr.plugin);
-        }
-        if (fr.isPluginGraphContributor(ac.vpr.plugin)) {
-          ac.vpr.plugin.activateGraphNode(this.pluginsGraph);
-        }
-        if (pmac.afterActivate) await pmac.afterActivate(ac.vpr.plugin);
+        await this.activatePlugin(vpr, pmac);
       }
-
       for (const ipr of acquired.invalidPlugins) {
         this.invalidPlugins.push(ipr);
       }
     }
   }
 
-  async deactivate(ctx: fr.PluginsManagerDeactivationContext): Promise<void> {
+  async deactivate(pmdc: fr.PluginsManagerDeactivationContext): Promise<void> {
     for (const plugin of this.plugins) {
-      const dac: fr.DeactivateContext<this> = { pluginsManager: this, plugin };
-      if (ctx.beforeDeactivate) await ctx.beforeDeactivate(dac);
-      if (fr.isActivatablePlugin(plugin)) {
-        await plugin.deactivate(dac);
-        // the ActivatablePlugin is immutable for others, but we're special
-        ((plugin as unknown) as fr.MutableActivationStateSupplier)
-          .activationState = fr.PluginActivationState.Inactive;
-      } else if (fr.isActivatableSyncPlugin(plugin)) {
-        plugin.deactivateSync(dac);
-        // the ActivatablePlugin is immutable for others, but we're special
-        ((plugin as unknown) as fr.MutableActivationStateSupplier)
-          .activationState = fr.PluginActivationState.Inactive;
-      }
-      if (
-        fr.isPluginGraphContributor(dac.plugin) &&
-        dac.plugin.deactivateGraphNode
-      ) {
-        dac.plugin.deactivateGraphNode(this.pluginsGraph);
-      }
-      if (ctx.afterDeactivate) await ctx.afterDeactivate(dac);
+      await this.deactivatePlugin(plugin, pmdc);
     }
   }
 
