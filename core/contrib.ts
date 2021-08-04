@@ -1,4 +1,4 @@
-import { safety } from "./deps.ts";
+import { io, safety } from "./deps.ts";
 
 export type ContributionIdentity = string;
 
@@ -38,16 +38,37 @@ export interface FlexibleContentContribution extends Contribution {
   readonly flexibleContent: string | Uint8Array | (() => string | Uint8Array);
 }
 
-export interface SingleUseWriterContribution extends Contribution, Deno.Writer {
-  readonly isSingleUseWriterContribution: true;
-}
+// export interface SingleUseReaderContribution extends Contribution, Deno.Reader {
+//   readonly isSingleUseReaderConsumed: boolean;
+// }
 
-export interface FlexibleSingleUseWriterContribution extends Contribution {
-  readonly flexibleSingleUseWriter: Deno.Writer | (() => Deno.Writer);
-}
+// export interface SingleUseWriterContribution extends Contribution, Deno.Writer {
+//   readonly isSingleUseWriterConsumed: boolean;
+// }
 
-export interface FlexibleMultiUseWriterContribution extends Contribution {
-  readonly flexibleWriter: Deno.Writer | (() => Deno.Writer);
+// export interface FlexibleSingleUseReaderContribution extends Contribution {
+//   readonly flexibleSingleUseReader: Deno.Reader | (() => Deno.Reader);
+//   readonly flexibleSingleUseReaderConsumed: boolean;
+// }
+
+// export interface FlexibleSingleUseWriterContribution extends Contribution {
+//   readonly flexibleSingleUseWriter: Deno.Writer | (() => Deno.Writer);
+//   readonly flexibleSingleUseWriterConsumed: boolean;
+// }
+
+// export interface FlexibleMultiUseReaderContribution extends Contribution {
+//   readonly flexibleReader: Deno.Reader | (() => Deno.Reader);
+//   readonly flexibleReaderConsumedCount: number;
+// }
+
+// export interface FlexibleMultiUseWriterContribution extends Contribution {
+//   readonly flexibleWriter: Deno.Writer | (() => Deno.Writer);
+//   readonly flexibleWriterConsumedCount: number;
+// }
+
+export interface EmitContribution extends Contribution {
+  readonly emit: (emit: Deno.Writer) => Promise<void>;
+  readonly emitSync: (emit: Deno.Writer) => void;
 }
 
 export interface OptionalFlexibleContribution
@@ -56,9 +77,10 @@ export interface OptionalFlexibleContribution
     Partial<TextContribution>,
     Partial<FlexibleTextContribution>,
     Partial<FlexibleContentContribution>,
-    Partial<SingleUseWriterContribution>,
-    Partial<FlexibleSingleUseWriterContribution>,
-    Partial<FlexibleMultiUseWriterContribution> {
+    // Partial<SingleUseWriterContribution>,
+    // Partial<FlexibleSingleUseWriterContribution>,
+    /* Partial<FlexibleMultiUseWriterContribution> */
+    Partial<EmitContribution> {
 }
 
 export type FlexibleContribution = safety.RequireAtLeastOne<
@@ -66,9 +88,11 @@ export type FlexibleContribution = safety.RequireAtLeastOne<
   | "text"
   | "flexibleText"
   | "flexibleContent"
-  | "write"
-  | "flexibleSingleUseWriter"
-  | "flexibleWriter"
+  // | "write"
+  // | "flexibleSingleUseWriter"
+  //| "flexibleWriter"
+  | "emit"
+  | "emitSync"
 >;
 
 export const isTextContribution = safety.typeGuard<TextContribution>("text");
@@ -85,19 +109,39 @@ export const isFlexibleContentContribution = safety.typeGuard<
   "flexibleContent",
 );
 
-export const isSingleUseWriterContribution = safety.typeGuard<
-  SingleUseWriterContribution
->(
-  "write",
-);
+// export const isSingleUseReaderContribution = safety.typeGuard<
+//   SingleUseReaderContribution
+// >(
+//   "read",
+//   "isSingleUseReaderConsumed",
+// );
 
-export const isFlexibleSingleUseWriterContribution = safety.typeGuard<
-  FlexibleSingleUseWriterContribution
->("flexibleSingleUseWriter");
+// export const isFlexibleSingleUseReaderContribution = safety.typeGuard<
+//   FlexibleSingleUseReaderContribution
+// >("flexibleSingleUseReader", "flexibleSingleUseReaderConsumed");
 
-export const isFlexibleMultiUseWriterContribution = safety.typeGuard<
-  FlexibleMultiUseWriterContribution
->("flexibleWriter");
+// export const isFlexibleMultiUseReaderContribution = safety.typeGuard<
+//   FlexibleMultiUseReaderContribution
+// >("flexibleReader", "flexibleReaderConsumedCount");
+
+// export const isSingleUseWriterContribution = safety.typeGuard<
+//   SingleUseWriterContribution
+// >(
+//   "write",
+//   "isSingleUseWriterConsumed",
+// );
+
+// export const isFlexibleSingleUseWriterContribution = safety.typeGuard<
+//   FlexibleSingleUseWriterContribution
+// >("flexibleSingleUseWriter", "flexibleSingleUseWriterConsumed");
+
+// export const isFlexibleMultiUseWriterContribution = safety.typeGuard<
+//   FlexibleMultiUseWriterContribution
+// >("flexibleWriter", "flexibleWriterConsumedCount");
+
+export const isFlexibleEmitContribution = safety.typeGuard<
+  EmitContribution
+>("emit", "emitSync");
 
 // deno-lint-ignore no-empty-interface
 export interface Contributor {
@@ -146,7 +190,7 @@ export function contributionContentTextSync(
     readonly invalidTypeText?: string | (() => string) | undefined;
     readonly textDecoder?: TextDecoder;
   },
-): string | undefined {
+): string | [result: string | undefined, handled: boolean] {
   if (contributor.text) return contributor.text;
   if (contributor.flexibleText) {
     if (typeof contributor.flexibleText === "string") {
@@ -171,25 +215,46 @@ export function contributionContentTextSync(
       return td.decode(result);
     }
   }
-  if (
-    contributor.flexibleSingleUseWriter || contributor.flexibleWriter ||
-    contributor.write
-  ) {
-    return options?.invalidTypeText
-      ? (typeof options.invalidTypeText == "string"
-        ? options.invalidTypeText
-        : options.invalidTypeText())
-      : `contributionContentTextSync cannot handle async contributor content: keys ${
-        Object.keys(contributor).join(", ")
-      }`;
+  if (contributor.emitSync) {
+    const sw = new io.StringWriter();
+    contributor.emitSync(sw);
+    return sw.toString();
   }
   if (options) {
-    return options.defaultText
+    const result = options.defaultText
       ? (typeof options.defaultText == "string"
         ? options.defaultText
         : options.defaultText())
-      : `No content provided by contributionContentTextSync contributor: keys ${
-        Object.keys(contributor).join(", ")
-      }}`;
+      : undefined;
+    return result ? result : [result, true];
   }
+  return [undefined, false];
+}
+
+export async function contributionContentText(
+  contributor: OptionalFlexibleContribution,
+  options?: {
+    readonly defaultText?: string | (() => string) | undefined;
+    readonly invalidTypeText?: string | (() => string) | undefined;
+    readonly textDecoder?: TextDecoder;
+  },
+): Promise<string | [result: string | undefined, handled: boolean]> {
+  const syncResult = contributionContentTextSync(contributor, options);
+  if (typeof syncResult === "string") return syncResult;
+  const [_, syncHandled] = syncResult;
+  if (syncHandled) return syncResult;
+  if (contributor.emit) {
+    const sw = new io.StringWriter();
+    await contributor.emit(sw);
+    return sw.toString();
+  }
+  if (options) {
+    const result = options.defaultText
+      ? (typeof options.defaultText == "string"
+        ? options.defaultText
+        : options.defaultText())
+      : undefined;
+    return result ? result : [result, true];
+  }
+  return [undefined, false];
 }

@@ -1,5 +1,6 @@
 export * as colors from "https://deno.land/std@0.103.0/fmt/colors.ts";
 export * as fs from "https://deno.land/std@0.103.0/fs/mod.ts";
+export * as io from "https://deno.land/std@0.103.0/io/mod.ts";
 export * as path from "https://deno.land/std@0.103.0/path/mod.ts";
 export * as uuid from "https://deno.land/std@0.103.0/uuid/mod.ts";
 
