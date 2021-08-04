@@ -1,4 +1,3 @@
-import { io } from "./deps.ts";
 import { testingAsserts as ta } from "./deps-test.ts";
 import * as mod from "./contrib.ts";
 
@@ -54,24 +53,12 @@ Deno.test(`contributionContentTextSync flexibleContent`, () => {
   );
 });
 
-Deno.test(`contributionContentTextSync emit`, async () => {
-  ta.assertEquals(
-    await mod.contributionContentText({
-      emit: async (writer) => {
-        const te = new TextEncoder();
-        await writer.write(te.encode("emit"));
-      },
-    }),
-    "emit",
-  );
-});
-
 Deno.test(`contributionContentTextSync emitSync`, () => {
   ta.assertEquals(
     mod.contributionContentTextSync({
       emitSync: (writer) => {
         const te = new TextEncoder();
-        writer.write(te.encode("emitSync"));
+        writer.writeSync(te.encode("emitSync"));
       },
     }),
     "emitSync",
@@ -85,42 +72,21 @@ Deno.test(`contributionContentTextSync unknown`, () => {
   );
 });
 
-// Deno.test(`contributionContentTextSync flexibleSingleUseWriter`, () => {
-//   ta.assertEquals(
-//     mod.contributionContentTextSync({
-//       flexibleSingleUseWriter: new io.StringWriter(),
-//     }),
-//     "contributionContentTextSync cannot handle async contributor content: keys flexibleSingleUseWriter",
-//   );
-//   ta.assertEquals(
-//     mod.contributionContentTextSync({
-//       flexibleSingleUseWriter: () => new io.StringWriter(),
-//     }),
-//     "contributionContentTextSync cannot handle async contributor content: keys flexibleSingleUseWriter",
-//   );
-// });
+Deno.test(`contributionContentText emit (async)`, async () => {
+  ta.assertEquals(
+    await mod.contributionContentText({
+      emit: async (writer) => {
+        const te = new TextEncoder();
+        await writer.write(te.encode("emit"));
+      },
+    }),
+    "emit",
+  );
+});
 
-// Deno.test(`contributionContentTextSync flexibleWriter`, () => {
-//   ta.assertEquals(
-//     mod.contributionContentTextSync({
-//       flexibleWriter: new io.StringWriter(),
-//     }),
-//     "contributionContentTextSync cannot handle async contributor content: keys flexibleWriter",
-//   );
-//   ta.assertEquals(
-//     mod.contributionContentTextSync({
-//       flexibleWriter: () => new io.StringWriter(),
-//     }),
-//     "contributionContentTextSync cannot handle async contributor content: keys flexibleWriter",
-//   );
-// });
-
-// Deno.test(`contributionContentTextSync write`, () => {
-//   const writer = new io.StringWriter();
-//   ta.assertEquals(
-//     mod.contributionContentTextSync({
-//       write: writer.write,
-//     }),
-//     "contributionContentTextSync cannot handle async contributor content: keys write",
-//   );
-// });
+Deno.test(`contributionContentText unknown (async)`, async () => {
+  ta.assertEquals(
+    await mod.contributionContentText({}),
+    [undefined, false],
+  );
+});

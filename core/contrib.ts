@@ -38,37 +38,9 @@ export interface FlexibleContentContribution extends Contribution {
   readonly flexibleContent: string | Uint8Array | (() => string | Uint8Array);
 }
 
-// export interface SingleUseReaderContribution extends Contribution, Deno.Reader {
-//   readonly isSingleUseReaderConsumed: boolean;
-// }
-
-// export interface SingleUseWriterContribution extends Contribution, Deno.Writer {
-//   readonly isSingleUseWriterConsumed: boolean;
-// }
-
-// export interface FlexibleSingleUseReaderContribution extends Contribution {
-//   readonly flexibleSingleUseReader: Deno.Reader | (() => Deno.Reader);
-//   readonly flexibleSingleUseReaderConsumed: boolean;
-// }
-
-// export interface FlexibleSingleUseWriterContribution extends Contribution {
-//   readonly flexibleSingleUseWriter: Deno.Writer | (() => Deno.Writer);
-//   readonly flexibleSingleUseWriterConsumed: boolean;
-// }
-
-// export interface FlexibleMultiUseReaderContribution extends Contribution {
-//   readonly flexibleReader: Deno.Reader | (() => Deno.Reader);
-//   readonly flexibleReaderConsumedCount: number;
-// }
-
-// export interface FlexibleMultiUseWriterContribution extends Contribution {
-//   readonly flexibleWriter: Deno.Writer | (() => Deno.Writer);
-//   readonly flexibleWriterConsumedCount: number;
-// }
-
 export interface EmitContribution extends Contribution {
   readonly emit: (emit: Deno.Writer) => Promise<void>;
-  readonly emitSync: (emit: Deno.Writer) => void;
+  readonly emitSync: (emit: Deno.WriterSync) => void;
 }
 
 export interface OptionalFlexibleContribution
@@ -77,9 +49,6 @@ export interface OptionalFlexibleContribution
     Partial<TextContribution>,
     Partial<FlexibleTextContribution>,
     Partial<FlexibleContentContribution>,
-    // Partial<SingleUseWriterContribution>,
-    // Partial<FlexibleSingleUseWriterContribution>,
-    /* Partial<FlexibleMultiUseWriterContribution> */
     Partial<EmitContribution> {
 }
 
@@ -88,9 +57,6 @@ export type FlexibleContribution = safety.RequireAtLeastOne<
   | "text"
   | "flexibleText"
   | "flexibleContent"
-  // | "write"
-  // | "flexibleSingleUseWriter"
-  //| "flexibleWriter"
   | "emit"
   | "emitSync"
 >;
@@ -108,36 +74,6 @@ export const isFlexibleContentContribution = safety.typeGuard<
 >(
   "flexibleContent",
 );
-
-// export const isSingleUseReaderContribution = safety.typeGuard<
-//   SingleUseReaderContribution
-// >(
-//   "read",
-//   "isSingleUseReaderConsumed",
-// );
-
-// export const isFlexibleSingleUseReaderContribution = safety.typeGuard<
-//   FlexibleSingleUseReaderContribution
-// >("flexibleSingleUseReader", "flexibleSingleUseReaderConsumed");
-
-// export const isFlexibleMultiUseReaderContribution = safety.typeGuard<
-//   FlexibleMultiUseReaderContribution
-// >("flexibleReader", "flexibleReaderConsumedCount");
-
-// export const isSingleUseWriterContribution = safety.typeGuard<
-//   SingleUseWriterContribution
-// >(
-//   "write",
-//   "isSingleUseWriterConsumed",
-// );
-
-// export const isFlexibleSingleUseWriterContribution = safety.typeGuard<
-//   FlexibleSingleUseWriterContribution
-// >("flexibleSingleUseWriter", "flexibleSingleUseWriterConsumed");
-
-// export const isFlexibleMultiUseWriterContribution = safety.typeGuard<
-//   FlexibleMultiUseWriterContribution
-// >("flexibleWriter", "flexibleWriterConsumedCount");
 
 export const isFlexibleEmitContribution = safety.typeGuard<
   EmitContribution
