@@ -118,6 +118,22 @@ export interface PluginsManager {
   readonly deactivate: (
     pmdc: PluginsManagerDeactivationContext,
   ) => Promise<void>;
+  readonly findPlugin: <P extends Plugin>(
+    predicate: (
+      plugin: Plugin,
+      index: number,
+      plugins: Plugin[],
+    ) => unknown,
+    guard?: safety.TypeGuard<P>,
+    onGuardFail?: (plugin: Plugin) => void,
+  ) => P | undefined;
+  readonly findPlugins: (
+    predicate: (
+      plugin: Plugin,
+      index: number,
+      plugins: Plugin[],
+    ) => unknown,
+  ) => Iterable<Plugin> | undefined;
 }
 
 export function isPluginsManager(

@@ -263,4 +263,16 @@ export abstract class TypicalPluginsManager implements fr.PluginsManager {
     }
     return undefined;
   }
+
+  findPlugins(
+    predicate: (
+      plugin: fr.Plugin,
+      index: number,
+      plugins: fr.Plugin[],
+    ) => unknown,
+  ): fr.Plugin[] | undefined {
+    const found = this.plugins.filter(predicate);
+    if (found.length == 0) return undefined;
+    return found;
+  }
 }
